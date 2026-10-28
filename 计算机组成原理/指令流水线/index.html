@@ -1,0 +1,2212 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>指令流水线实验台</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="408 计算机组成原理 · 指令流水线交互式学习：时空图、性能计算、MIPS 功能段、冒险模拟器与真题自测">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;900&display=swap">
+<style>
+/* Layout: 实验手册式长页——吸顶目录 + 单栏正文（≤1120px），每节以教材节号作眉标；图表与数据通路放在各自的横向滚动框内 */
+:root{
+  --bg:#f2f4f6;
+  --surface:#ffffff;
+  --surface-2:#e8ecf0;
+  --ink:#14202c;
+  --ink-2:#435260;
+  --muted:#66737f;
+  --line:#d1d8df;
+  --line-2:#e2e7ec;
+  --accent:#1d4f91;
+  --accent-ink:#ffffff;
+  --accent-soft:#e0e9f6;
+  /* 五个流水段的固定配色（已做色觉缺陷校验），全页一致 */
+  --s-if:#2a78d6;
+  --s-id:#1baf7a;
+  --s-ex:#eda100;
+  --s-mem:#6250d6;
+  --s-wb:#e87ba4;
+  --stall:#c93434;
+  --ok:#0f7f3a;
+  --stall-bg:color-mix(in srgb,var(--stall) 9%,var(--surface));
+  --font-display:"Noto Serif SC","Source Han Serif SC","Songti SC","STSong",serif;
+  --font-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --font-mono:"IBM Plex Mono","JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1318; --surface:#161d24; --surface-2:#1f2830; --ink:#e5eaef; --ink-2:#b3bfca; --muted:#8693a0;
+    --line:#2d3843; --line-2:#222b34; --accent:#8fb8ee; --accent-ink:#0e1318; --accent-soft:#1b2a3d;
+    --s-if:#3987e5; --s-id:#199e70; --s-ex:#c98500; --s-mem:#9085e9; --s-wb:#d55181;
+    --stall:#ee6b6b; --ok:#46c477;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1318; --surface:#161d24; --surface-2:#1f2830; --ink:#e5eaef; --ink-2:#b3bfca; --muted:#8693a0;
+  --line:#2d3843; --line-2:#222b34; --accent:#8fb8ee; --accent-ink:#0e1318; --accent-soft:#1b2a3d;
+  --s-if:#3987e5; --s-id:#199e70; --s-ex:#c98500; --s-mem:#9085e9; --s-wb:#d55181;
+  --stall:#ee6b6b; --ok:#46c477;
+  color-scheme:dark;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.75}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--surface)}
+[hidden]{display:none!important}
+img{max-width:100%}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+code,kbd,pre{font-family:var(--font-mono)}
+p{margin:0}
+ul,ol{margin:0}
+.defs{position:absolute;width:0;height:0;overflow:hidden}
+
+.wrap{max-width:1120px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* ---------- 顶栏 ---------- */
+.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:color-mix(in srgb,var(--surface) 94%,transparent);backdrop-filter:saturate(1.3) blur(8px);-webkit-backdrop-filter:saturate(1.3) blur(8px);border-bottom:1px solid var(--line)}
+.topbar-in{display:flex;align-items:center;gap:16px;min-height:56px}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--font-display);font-weight:900;font-size:17px;color:var(--ink);text-decoration:none;white-space:nowrap}
+.toc{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;flex:1;min-width:0}
+.toc::-webkit-scrollbar{display:none}
+.toc a{flex:none;padding:5px 10px;border-radius:6px;color:var(--ink-2);text-decoration:none;font-size:13.5px;white-space:nowrap}
+.toc a .n{font-family:var(--font-mono);font-size:11.5px;color:var(--muted);margin-right:5px}
+.toc a:hover,.toc a.on{background:var(--surface-2);color:var(--ink)}
+.theme-btn{flex:none;width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;display:grid;place-items:center}
+@media (max-width:820px){
+  .topbar-in{flex-wrap:wrap;gap:2px 12px;padding-block:8px}
+  .toc{order:3;flex-basis:100%;margin-inline:-6px}
+  .brand{flex:1}
+}
+
+/* ---------- 文字 ---------- */
+h1,h2,h3,h4{font-family:var(--font-display);text-wrap:balance;line-height:1.25;margin:0;font-weight:900}
+h1{font-size:clamp(42px,7.4vw,72px);letter-spacing:.03em}
+h2{font-size:clamp(26px,3.6vw,34px)}
+h3{font-size:20px;font-weight:600}
+h4{font-size:16px;font-weight:600}
+.eyebrow{font-family:var(--font-mono);font-size:12.5px;letter-spacing:.08em;color:var(--muted);margin:0}
+.lead{font-size:16.5px;color:var(--ink-2);max-width:68ch}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.mono{font-family:var(--font-mono)}
+.prose{display:flex;flex-direction:column;gap:12px;max-width:72ch}
+.prose ul,.prose ol{padding-left:1.3em;display:flex;flex-direction:column;gap:4px}
+code.inl{font-size:.92em;padding:1px 5px;border-radius:4px;background:var(--surface-2)}
+
+/* ---------- 区块 ---------- */
+.sec{padding-block:64px;border-top:1px solid var(--line);scroll-margin-top:64px}
+.sec-in{display:flex;flex-direction:column;gap:28px}
+.sec-head{display:flex;flex-direction:column;gap:8px}
+.block{display:flex;flex-direction:column;gap:14px;scroll-margin-top:84px}
+.block-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+@media (max-width:820px){.sec{scroll-margin-top:104px}.block{scroll-margin-top:118px}}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px}
+.panel-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;margin-bottom:12px}
+.panel-title{font-weight:700;font-size:15px}
+.note{border-left:3px solid var(--line);padding:4px 0 4px 14px;color:var(--ink-2);font-size:14px;max-width:72ch}
+.note b{color:var(--ink)}
+
+.kd{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:12px;line-height:1;padding:5px 9px;border:1px solid var(--line);border-radius:999px;color:var(--ink-2);background:var(--surface);white-space:nowrap}
+.kd::before{content:"考点";font-family:var(--font-body);font-weight:700;color:var(--accent)}
+
+.sb{display:inline-grid;place-items:center;min-width:44px;height:24px;padding:0 6px;border-radius:5px;font-family:var(--font-mono);font-weight:600;font-size:12.5px;line-height:1;color:var(--ink);background:color-mix(in srgb,var(--c) 22%,var(--surface));border:1.5px solid var(--c)}
+.sb-IF{--c:var(--s-if)}.sb-ID{--c:var(--s-id)}.sb-EX{--c:var(--s-ex)}.sb-MEM{--c:var(--s-mem)}.sb-WB{--c:var(--s-wb)}
+
+/* ---------- 控件 ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:36px;padding:0 14px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-size:14px;font-weight:500;line-height:1;cursor:pointer;text-decoration:none;white-space:nowrap}
+.btn:hover{border-color:var(--ink-2)}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn-primary:hover{border-color:var(--accent);filter:brightness(1.08)}
+.btn-sm{height:30px;padding:0 10px;font-size:13px}
+.btn-icon{width:34px;height:32px;padding:0}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.seg{display:inline-flex;flex-wrap:wrap;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{border:0;border-right:1px solid var(--line);background:transparent;padding:0 12px;height:32px;font:inherit;font-size:13.5px;color:var(--ink-2);cursor:pointer;white-space:nowrap}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.seg button:disabled{opacity:.45;cursor:not-allowed}
+select,input[type=number],textarea{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px}
+select{height:34px;padding:0 8px;font-size:14px;max-width:100%}
+select:disabled{opacity:.5}
+input[type=number]{height:32px;width:86px;padding:0 8px;font-family:var(--font-mono);font-size:14px}
+textarea{display:block;font-family:var(--font-mono);font-size:13.5px;line-height:1.65;padding:10px 12px;width:100%;min-height:200px;resize:vertical;tab-size:4;white-space:pre;overflow-x:auto}
+input[type=checkbox]{accent-color:var(--accent);width:16px;height:16px;margin:4px 0 0;flex:none}
+input[type=range]{accent-color:var(--accent);width:100%;margin:0}
+.check{display:flex;align-items:flex-start;gap:9px;cursor:pointer}
+.check span{display:flex;flex-direction:column;line-height:1.5}
+.check small{color:var(--muted);font-size:12.5px}
+.check.dis{opacity:.55;cursor:default}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field > span{font-size:13px;color:var(--ink-2)}
+.field-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px}
+.range-row{display:grid;grid-template-columns:auto minmax(0,1fr) 3.2em;align-items:center;gap:10px}
+.range-row output{font-family:var(--font-mono);text-align:right}
+
+.scroll-x{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
+.scroll-x > svg{display:block}
+
+/* ---------- SVG 图表 ---------- */
+.chart text{font-family:var(--font-mono);font-size:11.5px;fill:var(--ink)}
+.chart .ax{fill:var(--muted);font-size:11px;cursor:pointer}
+.chart .ax-cur{fill:var(--ink);font-weight:600}
+.chart .ax-lab{fill:var(--muted);font-family:var(--font-body);font-size:11px}
+.chart .grid{stroke:var(--line-2);stroke-width:1}
+.chart .clk{fill:none;stroke:var(--ink-2);stroke-width:1.3}
+.chart .cur-col{fill:var(--accent-soft)}
+.chart .col-hit{fill:transparent;cursor:pointer}
+.chart .lab-id{font-weight:600}
+.chart .lab-txt{fill:var(--ink-2)}
+.chart .lab-muted{fill:var(--muted);font-style:italic}
+.chart .lab-note{fill:var(--muted);font-size:10.5px;font-family:var(--font-body);font-style:normal}
+.chart .tiny{font-size:9.5px}
+.cell{cursor:pointer}
+.cell rect{stroke-width:1.4}
+.cell text{font-size:11px;font-weight:600;fill:var(--ink);pointer-events:none}
+.st-IF rect{fill:color-mix(in srgb,var(--s-if) 22%,var(--surface));stroke:var(--s-if)}
+.st-ID rect{fill:color-mix(in srgb,var(--s-id) 22%,var(--surface));stroke:var(--s-id)}
+.st-EX rect{fill:color-mix(in srgb,var(--s-ex) 24%,var(--surface));stroke:var(--s-ex)}
+.st-MEM rect{fill:color-mix(in srgb,var(--s-mem) 20%,var(--surface));stroke:var(--s-mem)}
+.st-WB rect{fill:color-mix(in srgb,var(--s-wb) 24%,var(--surface));stroke:var(--s-wb)}
+.occ rect{fill:color-mix(in srgb,var(--accent) 22%,var(--surface));stroke:var(--accent)}
+.idle rect{fill:var(--surface);stroke:var(--line)}
+.cell.empty rect{fill:var(--surface);stroke-dasharray:3 2.5}
+.cell.empty text{fill:var(--muted);font-weight:500}
+.cell.nopc rect{fill:var(--surface-2);stroke:var(--muted)}
+.cell.nopc text{fill:var(--muted)}
+.cell.flush rect{fill:var(--surface-2);stroke:var(--muted)}
+.cell.flush text{fill:var(--muted)}
+.cell.stall rect{fill:url(#hatch);stroke:var(--stall)}
+.cell.stall text{fill:var(--stall);font-family:var(--font-body);font-weight:700;font-size:10.5px}
+.chart .future{opacity:.14}
+.chart .strike{stroke:var(--muted);stroke-width:1.5}
+.chart .flush-lab{fill:var(--muted);font-family:var(--font-body);font-size:11px}
+.arrow{fill:none;stroke:var(--ink);stroke-width:1.7;pointer-events:none}
+.arrow-halo{fill:none;stroke:var(--surface);stroke-width:5;stroke-linecap:round;pointer-events:none}
+.arrow-hit{fill:none;stroke:transparent;stroke-width:12;cursor:help}
+.hatch-bg{fill:var(--stall-bg)}
+.hatch-line{stroke:var(--stall);stroke-width:1.6;opacity:.5}
+.ah-ink{fill:var(--ink)}
+.ah-dim{fill:var(--line)}
+.ah-acc{fill:var(--accent)}
+.chart .endline{stroke:var(--ink);stroke-width:1.5}
+.chart .endlab{font-family:var(--font-body);font-size:11.5px;font-weight:700}
+
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--ink-2)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend svg{flex:none}
+
+/* ---------- 数据通路 ---------- */
+.dp{display:block;width:100%;min-width:760px;height:auto}
+.dp text{font-family:var(--font-body);font-size:12px;fill:var(--ink)}
+.dp .mono{font-family:var(--font-mono)}
+.dp .box{fill:var(--surface);stroke:var(--line);stroke-width:1.5}
+.dp .box.act{stroke:var(--c);stroke-width:2}
+.dp .box.held{fill:url(#hatch);stroke:var(--stall);stroke-width:2}
+.dp .stg{font-family:var(--font-mono);font-weight:600;font-size:13px}
+.dp .comp{fill:var(--muted);font-size:11px}
+.dp .latch{fill:var(--surface-2);stroke:var(--ink-2);stroke-width:1.2}
+.dp .latch-lab{fill:var(--muted);font-family:var(--font-mono);font-size:10px}
+.dp .wire{fill:none;stroke:var(--line);stroke-width:2}
+.dp .wire.on{stroke:var(--ink);stroke-width:2.4}
+.dp .wire.bad{stroke:var(--stall);stroke-width:2.4}
+.dp .wire-lab{fill:var(--muted);font-size:11px}
+.dp .wire-lab.on{fill:var(--ink);font-weight:700}
+.dp .wire-lab.bad{fill:var(--stall);font-weight:700}
+.dp .chip rect{stroke-width:1.4}
+.dp .chip .t1{font-family:var(--font-mono);font-size:11.5px;font-weight:600}
+.dp .chip .t2{font-size:11px;fill:var(--ink-2)}
+.dp .chip.empty-chip rect{fill:var(--surface);stroke:var(--line);stroke-dasharray:4 3}
+.dp .chip.empty-chip text{fill:var(--muted)}
+.dp .chip.held-chip rect{fill:url(#hatch);stroke:var(--stall)}
+.dp .chip.held-chip .t2{fill:var(--stall);font-weight:700}
+.dp .chip.flush-chip rect{fill:var(--surface-2);stroke:var(--muted)}
+.dp .chip.flush-chip text{fill:var(--muted)}
+.dp .pc{fill:var(--surface);stroke:var(--ink-2);stroke-width:1.4}
+.dp .pc.hold{fill:url(#hatch);stroke:var(--stall)}
+.dp .clkline{stroke:var(--ink-2);stroke-width:1.2;fill:none}
+
+.events{list-style:none;padding:0;display:flex;flex-direction:column;gap:7px;margin-top:12px}
+.events li{display:flex;gap:10px;align-items:baseline;font-size:13.5px;line-height:1.6}
+.tag{flex:none;display:inline-flex;align-items:center;height:21px;font-size:11.5px;font-weight:700;padding:0 7px;border-radius:4px;border:1px solid var(--line);color:var(--ink-2);background:var(--surface);white-space:nowrap}
+.tag.t-stall{color:var(--stall);border-color:var(--stall)}
+.tag.t-fwd{color:var(--accent);border-color:var(--accent)}
+.tag.t-ok{color:var(--ok);border-color:var(--ok)}
+.tag.t-ink{color:var(--ink);border-color:var(--ink-2)}
+
+/* ---------- 首屏 ---------- */
+.hero{padding-block:56px 48px}
+.hero-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,520px);gap:40px;align-items:center}
+.hero-text{display:flex;flex-direction:column;gap:18px}
+.hero-actions{display:flex;flex-wrap:wrap;gap:10px}
+.hero-fig{margin:0;display:flex;flex-direction:column;gap:10px;min-width:0}
+.hero-fig figcaption{font-size:12.5px;color:var(--muted)}
+.hero-chips{display:flex;flex-wrap:wrap;gap:8px}
+@media (max-width:980px){.hero-grid{grid-template-columns:minmax(0,1fr)}}
+
+/* ---------- 5.6.1 ---------- */
+.par2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.par2 > div{display:flex;flex-direction:column;gap:6px;padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.par2 .lbl{font-family:var(--font-mono);font-size:12px;color:var(--muted)}
+@media (max-width:640px){.par2{grid-template-columns:minmax(0,1fr)}}
+.stages{list-style:none;padding:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+.stages li{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.stages .nm{font-weight:700}
+.stages li > .sb{align-self:flex-start}
+.stages .hw{font-size:12.5px;color:var(--muted);margin-top:auto}
+.stages p{font-size:13.5px;color:var(--ink-2);line-height:1.6}
+@media (max-width:960px){
+  .stages{grid-template-columns:minmax(0,1fr)}
+  .stages li{display:grid;grid-template-columns:52px minmax(0,1fr);column-gap:12px;row-gap:2px}
+  .stages li > .sb{grid-row:1 / span 3}
+  .stages .hw{margin-top:0}
+}
+.duo{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}
+.duo-row{display:grid;grid-template-columns:7.5em minmax(0,1fr);align-items:center;gap:10px}
+.duo-row .who{font-size:13px;color:var(--ink-2);line-height:1.4}
+.duo-row .who b{display:block;color:var(--ink);font-family:var(--font-mono);font-size:14px}
+@media (max-width:560px){.duo-row{grid-template-columns:minmax(0,1fr)}}
+
+.list-num{counter-reset:li;list-style:none;padding:0;display:flex;flex-direction:column;gap:8px}
+.list-num li{counter-increment:li;display:grid;grid-template-columns:28px minmax(0,1fr);gap:8px;font-size:14.5px}
+.list-num li::before{content:counter(li);font-family:var(--font-mono);font-size:12px;width:22px;height:22px;border-radius:50%;border:1px solid var(--line);display:grid;place-items:center;color:var(--ink-2);margin-top:2px}
+
+/* ---------- 数值读数 ---------- */
+.readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.readout > div{background:var(--surface);padding:10px 14px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.readout b{font-family:var(--font-mono);font-size:19px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.35}
+.readout span{font-size:12.5px;color:var(--muted);line-height:1.4}
+.readout small{font-size:12px;color:var(--ink-2);font-family:var(--font-mono)}
+.formula{font-family:var(--font-mono);font-size:14px;background:var(--surface-2);border-radius:8px;padding:12px 14px;line-height:1.9;overflow-x:auto}
+
+/* ---------- 时钟周期计算器 ---------- */
+.clock{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
+.crow{display:grid;grid-template-columns:64px 92px minmax(0,1fr);align-items:center;gap:10px}
+.crow .cname{font-family:var(--font-mono);font-size:13px;font-weight:600}
+.cbar{display:flex;height:22px;border-radius:5px;overflow:hidden;background:var(--surface-2)}
+.cbar i{display:block;height:100%}
+.cbar .d{background:color-mix(in srgb,var(--c,var(--accent)) 55%,var(--surface))}
+.cbar .w{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--muted) 28%,transparent) 0 2px,transparent 2px 6px)}
+.cbar .l{background:color-mix(in srgb,var(--ink) 55%,var(--surface))}
+.crow.max .cname::after{content:" 瓶颈";font-family:var(--font-body);font-size:11px;color:var(--stall);font-weight:700}
+.clock-rows{display:flex;flex-direction:column;gap:8px}
+.insight{font-size:14.5px;padding:10px 14px;border-radius:8px;background:var(--accent-soft);color:var(--ink)}
+
+/* ---------- 性能 ---------- */
+.perf{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:900px){.perf{grid-template-columns:minmax(0,1fr)}}
+.line-svg{display:block;width:100%;min-width:460px;height:auto}
+.line-svg text{font-family:var(--font-mono);font-size:11px;fill:var(--muted)}
+.line-svg .lab{fill:var(--ink);font-weight:600}
+.line-svg .gl{stroke:var(--line-2);stroke-width:1}
+.line-svg .base{stroke:var(--line);stroke-width:1}
+.line-svg .ln{fill:none;stroke:var(--accent);stroke-width:2}
+.line-svg .ar{fill:color-mix(in srgb,var(--accent) 12%,transparent)}
+.line-svg .dot{fill:var(--accent);stroke:var(--surface);stroke-width:2}
+.line-svg .xh{stroke:var(--ink-2);stroke-width:1}
+.line-svg .asym{stroke:var(--ink-2);stroke-width:1}
+
+/* ---------- MIPS ---------- */
+.mips{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:20px}
+@media (max-width:900px){.mips{grid-template-columns:minmax(0,1fr)}}
+.strip{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.strip .cyc{font-family:var(--font-mono);font-size:11px;color:var(--muted);text-align:center}
+.strip .seg-c{height:40px;border-radius:6px;display:grid;place-items:center;font-family:var(--font-mono);font-size:12.5px;font-weight:600;border:1.5px solid var(--c);background:color-mix(in srgb,var(--c) 20%,var(--surface));text-align:center;line-height:1.2;padding:0 4px}
+.strip .seg-c.empty{background:var(--surface);border-style:dashed;color:var(--muted);font-weight:500}
+.strip .seg-c.none{border:1px dashed var(--line-2);background:transparent}
+.rtl{font-family:var(--font-mono);font-size:15px;padding:10px 14px;border-radius:8px;background:var(--surface-2);overflow-x:auto;white-space:nowrap}
+.mips-steps{list-style:none;padding:0;display:flex;flex-direction:column;gap:8px}
+.mips-steps li{display:grid;grid-template-columns:52px minmax(0,1fr);gap:10px;align-items:start;font-size:14px}
+.mips-steps li.off{color:var(--muted)}
+.mips-steps li.off .sb{opacity:.45;border-style:dashed}
+.tbl-wrap{overflow-x:auto}
+table.tbl{border-collapse:collapse;width:100%;min-width:640px;font-size:13.5px;background:var(--surface)}
+.tbl th,.tbl td{border:1px solid var(--line);padding:8px 10px;text-align:center;vertical-align:middle}
+.tbl thead th{background:var(--surface-2);font-weight:700}
+.tbl td.dash{color:var(--muted)}
+.tbl td:first-child,.tbl th:first-child{text-align:left;white-space:nowrap}
+
+/* ---------- 冒险卡 ---------- */
+.hz{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+@media (max-width:960px){.hz{grid-template-columns:minmax(0,1fr)}}
+.hz article{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.hz h3{font-size:19px}
+.hz .sub{font-size:12.5px;color:var(--muted);font-family:var(--font-mono)}
+.hz dl{margin:0;display:flex;flex-direction:column;gap:8px;font-size:14px}
+.hz dt{font-weight:700;font-size:13px;color:var(--ink-2)}
+.hz dd{margin:0;line-height:1.65}
+.hz dd ol{padding-left:1.2em;display:flex;flex-direction:column;gap:3px}
+.hz .acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto;padding-top:6px}
+.hz .kds{display:flex;flex-wrap:wrap;gap:6px}
+
+/* ---------- 模拟器 ---------- */
+.sim{display:flex;flex-direction:column;gap:16px}
+.sim-top{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:900px){.sim-top{grid-template-columns:minmax(0,1fr)}}
+.sim-edit,.sim-opts{display:flex;flex-direction:column;gap:12px}
+.opts{display:flex;flex-direction:column;gap:10px}
+.opts-t{font-weight:700;font-size:13px;color:var(--ink-2)}
+.opts + .opts{border-top:1px solid var(--line-2);padding-top:14px}
+.pipe-chart{display:flex;align-items:flex-start}
+.pipe-chart .pc-lab{flex:none;display:block;border-right:1px solid var(--line-2)}
+.pipe-chart .pc-grid{flex:1;min-width:0}
+.preset-note{font-size:13px;color:var(--ink-2);line-height:1.6}
+.err{font-size:13px;color:var(--stall)}
+.parsed{list-style:none;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:6px 14px;font-size:12.5px;max-height:220px;overflow:auto}
+.parsed li{display:grid;grid-template-columns:30px minmax(0,1fr);gap:6px;align-items:baseline}
+.parsed .pid{font-family:var(--font-mono);font-weight:600}
+.parsed code{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.parsed .rw{grid-column:2;color:var(--muted);font-family:var(--font-mono);font-size:11.5px}
+.syntax summary{cursor:pointer;font-size:13px;color:var(--accent)}
+.syntax div{font-size:12.5px;color:var(--ink-2);display:flex;flex-direction:column;gap:4px;margin-top:8px}
+.stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.stats > div{background:var(--surface);padding:10px 12px;display:flex;flex-direction:column;gap:1px;min-width:0}
+.stats b{font-family:var(--font-mono);font-size:20px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.35}
+.stats span{font-size:12px;color:var(--muted);line-height:1.35}
+@media (max-width:700px){.stats{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.player{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}
+.player .cyc{font-family:var(--font-mono);font-size:13px;color:var(--ink-2);margin-left:auto;font-variant-numeric:tabular-nums}
+.chart-wrap{border:1px solid var(--line-2);border-radius:8px;background:var(--surface);overflow:hidden}
+.chart-wrap:focus-visible{outline-offset:0}
+.log{list-style:none;padding:0;display:flex;flex-direction:column;gap:8px}
+.log li{display:flex;gap:10px;align-items:baseline;font-size:13.5px;line-height:1.6}
+.log code{font-size:12.5px}
+
+/* ---------- 高级流水线 ---------- */
+.adv-ctrl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 20px}
+@media (max-width:760px){.adv-ctrl{grid-template-columns:minmax(0,1fr)}}
+.adv-figs{display:flex;flex-direction:column;gap:18px}
+.adv-fig{display:flex;flex-direction:column;gap:6px}
+.adv-fig header{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}
+.adv-fig header b{font-size:15px}
+.adv-fig header span{font-family:var(--font-mono);font-size:13px;color:var(--ink-2)}
+
+/* ---------- 真题 ---------- */
+.quiz-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
+.quiz-bar .prog{font-family:var(--font-mono);font-size:13.5px;color:var(--ink-2);margin-left:auto}
+.quiz{list-style:none;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
+@media (max-width:900px){.quiz{grid-template-columns:minmax(0,1fr)}}
+.q{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.q-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.q-no{font-family:var(--font-mono);font-size:12px;color:var(--muted)}
+.q-src{font-size:12px;font-weight:700;padding:2px 8px;border-radius:4px;background:var(--surface-2);color:var(--ink-2)}
+.q-src.real{background:var(--accent-soft);color:var(--accent)}
+.q-topic{font-size:12px;color:var(--muted)}
+.q-stem{font-size:14.5px;line-height:1.7;white-space:pre-line}
+.q-code{margin:0;font-size:12.5px;line-height:1.6;background:var(--surface-2);border-radius:8px;padding:10px 12px;overflow-x:auto;white-space:pre}
+.q-opts{display:grid;grid-template-columns:minmax(0,1fr);gap:6px}
+.opt{display:grid;grid-template-columns:24px minmax(0,1fr);gap:8px;align-items:baseline;text-align:left;padding:7px 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-size:14px;line-height:1.55;cursor:pointer}
+.opt b{font-family:var(--font-mono)}
+.opt:hover{border-color:var(--ink-2)}
+.opt.right{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 10%,var(--surface))}
+.opt.wrong{border-color:var(--stall);background:color-mix(in srgb,var(--stall) 9%,var(--surface))}
+.q-fb{font-size:14px;line-height:1.7;border-top:1px dashed var(--line);padding-top:10px;display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.q-fb .res{font-weight:700}
+.q-fb .res.r{color:var(--ok)}
+.q-fb .res.w{color:var(--stall)}
+.cases{display:flex;flex-direction:column;gap:12px}
+details.case{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:0 18px}
+details.case > summary{cursor:pointer;padding:14px 0;font-weight:700;list-style-position:outside}
+details.case[open] > summary{border-bottom:1px solid var(--line-2)}
+.case-body{display:flex;flex-direction:column;gap:12px;padding:14px 0 18px;font-size:14.5px;max-width:80ch}
+.case-body ol{padding-left:1.3em;display:flex;flex-direction:column;gap:10px}
+
+.tip{position:fixed;z-index:60;max-width:320px;padding:8px 10px;border-radius:8px;background:var(--ink);color:var(--bg);font-size:12.5px;line-height:1.55;white-space:pre-line;pointer-events:none;box-shadow:0 6px 24px rgba(0,0,0,.2)}
+footer.foot{border-top:1px solid var(--line);padding-block:28px 40px;font-size:13px;color:var(--muted)}
+</style>
+</head>
+<body>
+<svg class="defs" aria-hidden="true" focusable="false">
+  <defs>
+    <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="6" height="6" class="hatch-bg"></rect>
+      <line x1="0" y1="0" x2="0" y2="6" class="hatch-line"></line>
+    </pattern>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-ink"></path></marker>
+    <marker id="ah-dim" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah-dim"></path></marker>
+  </defs>
+</svg>
+<div class="tip" id="tip" hidden></div>
+
+<header class="topbar">
+  <div class="wrap topbar-in">
+    <a class="brand" href="#top">
+      <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect x="1" y="17" width="4" height="4" rx="1" style="fill:var(--s-if)"></rect><rect x="5" y="13" width="4" height="4" rx="1" style="fill:var(--s-id)"></rect><rect x="9" y="9" width="4" height="4" rx="1" style="fill:var(--s-ex)"></rect><rect x="13" y="5" width="4" height="4" rx="1" style="fill:var(--s-mem)"></rect><rect x="17" y="1" width="4" height="4" rx="1" style="fill:var(--s-wb)"></rect></svg>
+      指令流水线实验台
+    </a>
+    <nav class="toc" aria-label="章节目录">
+      <a href="#s1"><span class="n">5.6.1</span>基本概念</a>
+      <a href="#s2"><span class="n">5.6.2</span>实现与性能</a>
+      <a href="#s3"><span class="n">5.6.3</span>MIPS 功能段</a>
+      <a href="#s4"><span class="n">5.6.4</span>冒险模拟器</a>
+      <a href="#s5"><span class="n">5.6.5</span>高级流水线</a>
+      <a href="#s6"><span class="n">5.6.6</span>真题自测</a>
+    </nav>
+    <button class="theme-btn" id="theme-btn" type="button" aria-label="切换深色/浅色">
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.5"></circle><path d="M8 1.8 A6.2 6.2 0 0 1 8 14.2 Z" fill="currentColor"></path></svg>
+    </button>
+  </div>
+</header>
+
+<main>
+<!-- ================= 首屏 ================= -->
+<section class="hero" id="top">
+  <div class="wrap hero-grid">
+    <div class="hero-text">
+      <p class="eyebrow">408 · 计算机组成原理 · 第 5 章 中央处理器 · 5.6</p>
+      <h1>指令流水线</h1>
+      <p class="lead">把一条指令拆成 IF、ID、EX、MEM、WB 五段，让相邻指令错开一个时钟周期重叠执行。本页把教材里的时空图和冒险表格做成了可以动手改的模型：改指令、开关转发、换分支策略，逐个周期看流水线怎么走。</p>
+      <div class="hero-chips">
+        <span class="sb sb-IF">IF</span><span class="sb sb-ID">ID</span><span class="sb sb-EX">EX</span><span class="sb sb-MEM">MEM</span><span class="sb sb-WB">WB</span>
+      </div>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="#sim">打开冒险模拟器</a>
+        <a class="btn" href="#s6">做真题</a>
+      </div>
+    </div>
+    <figure class="hero-fig">
+      <div class="pipe-chart chart-wrap" role="img" aria-label="理想五段流水线的指令-时间图"><svg class="chart pc-lab" id="hero-lab" aria-hidden="true"></svg><div class="scroll-x pc-grid"><svg class="chart" id="hero-chart" aria-hidden="true"></svg></div></div>
+      <figcaption>理想 5 段流水线（对应教材图 5.20）。每个时钟上升沿，所有流水段寄存器同时锁存，指令整体前进一段；第 5 周期起每周期完成一条指令。</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ================= 5.6.1 ================= -->
+<section class="sec" id="s1">
+  <div class="wrap sec-in">
+    <header class="sec-head">
+      <p class="eyebrow">5.6.1</p>
+      <h2>指令流水线的基本概念</h2>
+      <p class="lead">单周期处理器一次只执行一条指令：取指时 ALU 闲着，访存时译码器闲着。流水线把指令的执行过程切成若干段，每段由专门的部件完成；上一条指令离开某段，下一条指令就进入该段，于是同一时刻有多条指令分别处在不同的段上。</p>
+    </header>
+
+    <div class="par2">
+      <div>
+        <span class="lbl">时间上的并行</span>
+        <h4>流水线技术</h4>
+        <p class="small">只有一套功能部件，分时复用。一条指令做完 IF 进入 ID 时，下一条指令就开始 IF，多条指令错开阶段同时推进。</p>
+      </div>
+      <div>
+        <span class="lbl">空间上的并行</span>
+        <h4>超标量处理器</h4>
+        <p class="small">配置多套相同的功能部件，同一时刻真正并行地处理多条指令（见 5.6.5）。复制功能部件不属于流水线本身。</p>
+      </div>
+    </div>
+
+    <div class="block">
+      <h3>五个流水段</h3>
+      <ol class="stages">
+        <li><span class="sb sb-IF">IF</span><span class="nm">取指</span><p>按 PC 从指令存储器（或指令 Cache）读出指令，同时 PC + 4。</p><span class="hw">指令存储器 · PC · 加法器</span></li>
+        <li><span class="sb sb-ID">ID</span><span class="nm">译码 / 读寄存器</span><p>分析操作码，产生控制信号，从寄存器堆读出源操作数。</p><span class="hw">译码器 · 寄存器堆读口</span></li>
+        <li><span class="sb sb-EX">EX</span><span class="nm">执行 / 计算地址</span><p>ALU 完成运算，或计算访存有效地址、比较分支条件。</p><span class="hw">ALU</span></li>
+        <li><span class="sb sb-MEM">MEM</span><span class="nm">访存</span><p>读写数据存储器（或数据 Cache）；分支指令在这一段写 PC。</p><span class="hw">数据存储器</span></li>
+        <li><span class="sb sb-WB">WB</span><span class="nm">写回</span><p>把运算结果或读出的数据写回寄存器堆。</p><span class="hw">寄存器堆写口</span></li>
+      </ol>
+    </div>
+
+    <div class="block">
+      <div class="block-head"><h3>不重叠执行与流水执行</h3></div>
+      <div class="panel">
+        <div class="range-row"><label for="serial-n">指令条数 n</label><input type="range" id="serial-n" min="1" max="8" value="4"><output id="serial-n-out" for="serial-n">4</output></div>
+        <div class="duo" style="margin-top:14px">
+          <div class="duo-row"><div class="who"><b id="serial-a-t">20Δt</b>逐条执行</div><div class="scroll-x"><svg class="chart" id="serial-a"></svg></div></div>
+          <div class="duo-row"><div class="who"><b id="serial-b-t">8Δt</b>流水执行</div><div class="scroll-x"><svg class="chart" id="serial-b"></svg></div></div>
+        </div>
+        <p class="insight" id="serial-insight" style="margin-top:14px"></p>
+      </div>
+      <p class="note">理想情况下（无冒险、无阻塞），每个时钟周期有一条新指令进入流水线、一条指令完成，平均 CPI 趋近 1。</p>
+    </div>
+
+    <div class="block">
+      <div class="block-head"><h3>适合流水线的指令集</h3><span class="kd">2011</span></div>
+      <ol class="list-num">
+        <li><span><b>指令长度统一</b>：取指和译码在固定时间内完成，不会因变长指令导致取指周期不确定。</span></li>
+        <li><span><b>指令格式规整</b>：源寄存器字段位置固定，译码前就能提前读寄存器。</span></li>
+        <li><span><b>采用 Load/Store 架构</b>：只有取数、存数指令访问主存，其他指令只操作寄存器，访存集中在 MEM 段，方便划分流水段。</span></li>
+        <li><span><b>数据与指令按边界对齐</b>：一次访存就能取到完整操作数，不会跨周期访问。</span></li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 5.6.2 ================= -->
+<section class="sec" id="s2">
+  <div class="wrap sec-in">
+    <header class="sec-head">
+      <p class="eyebrow">5.6.2</p>
+      <h2>流水线的实现与性能</h2>
+    </header>
+
+    <div class="block" id="clock">
+      <div class="block-head"><h3>时钟周期怎么定</h3><span class="kd">2009 · 2018 · 2025</span></div>
+      <div class="prose">
+        <p>流水线所有段由同一个时钟驱动，每段的时长必须相同。设计遵循两条原则：</p>
+        <ol>
+          <li>流水段的数目按最复杂指令（lw）需要的功能段数确定；</li>
+          <li>每段的时长取最耗时的那一段；题目给出流水段寄存器延迟时还要加上。</li>
+        </ol>
+      </div>
+      <div class="panel clock">
+        <div class="field-row">
+          <div class="seg" id="clock-presets" role="group" aria-label="预设"></div>
+        </div>
+        <div class="field-row">
+          <label class="field-row" for="clock-unit">时间单位 <select id="clock-unit"><option value="ps">ps</option><option value="ns">ns</option></select></label>
+          <label class="field-row" for="clock-latch">流水段寄存器延迟 <input type="number" id="clock-latch" min="0" step="1" value="0"></label>
+          <label class="field-row" for="clock-n">指令条数 N <input type="number" id="clock-n" min="1" step="1" value="100"></label>
+        </div>
+        <div class="clock-rows" id="clock-rows"></div>
+        <div class="field-row">
+          <button class="btn btn-sm" type="button" id="clock-add">添加一段</button>
+          <button class="btn btn-sm" type="button" id="clock-del">删除末段</button>
+          <span class="legend"><span><svg width="18" height="10"><rect width="18" height="10" rx="2" style="fill:color-mix(in srgb,var(--accent) 55%,var(--surface))"></rect></svg>该段实际耗时</span><span><svg width="18" height="10"><rect width="18" height="10" rx="2" style="fill:var(--surface-2)"></rect><path d="M0 10 L10 0 M6 10 L16 0 M12 10 L18 4" style="stroke:var(--muted);opacity:.6"></path></svg>补齐到时钟周期的空等</span><span><svg width="18" height="10"><rect width="18" height="10" rx="2" style="fill:color-mix(in srgb,var(--ink) 55%,var(--surface))"></rect></svg>段寄存器延迟</span></span>
+        </div>
+        <div class="readout" id="clock-out"></div>
+        <p class="insight" id="clock-insight"></p>
+      </div>
+    </div>
+
+    <div class="block" id="structure">
+      <div class="block-head"><h3>逻辑结构：段与段之间的流水段寄存器</h3><span class="kd">2018</span></div>
+      <div class="prose">
+        <p>每个流水段之后都有一个流水段寄存器（IF/ID、ID/EX、EX/MEM、MEM/WB），锁存本段的结果，供下一段在下个周期使用。所有寄存器受同一个 CLK 控制：每来一个时钟，各段结果同时锁存、同时向后传，指令逐级推进。第一条指令进入 WB 时流水线满载，最多同时有 5 条指令处在不同段。</p>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <span class="panel-title" id="mini-cap">第 1 周期</span>
+          <div class="field-row">
+            <button class="btn btn-sm btn-icon" type="button" id="mini-prev" aria-label="上一周期">◀</button>
+            <button class="btn btn-sm" type="button" id="mini-play">自动播放</button>
+            <button class="btn btn-sm btn-icon" type="button" id="mini-next" aria-label="下一周期">▶</button>
+          </div>
+        </div>
+        <div class="scroll-x"><svg class="dp" id="mini-dp" role="img" aria-label="五段流水线数据通路"></svg></div>
+      </div>
+      <p class="note"><b>注意</b>：流水段寄存器本身也有延迟。考试中若没有明确给出，可以忽略。</p>
+    </div>
+
+    <div class="block" id="perf">
+      <div class="block-head"><h3>时空图与吞吐率</h3><span class="kd">2012 · 2013</span></div>
+      <div class="prose">
+        <p>时空图横轴是时间，纵轴是流水段（对应教材图 5.22）。k 段流水线连续处理 n 个任务：第一个任务要 k 个周期才流出，之后每个周期流出一个，所以总时间是 (k + n − 1)Δt。</p>
+      </div>
+      <div class="perf">
+        <div class="panel" style="display:flex;flex-direction:column;gap:14px">
+          <div class="range-row"><label for="perf-k">段数 k</label><input type="range" id="perf-k" min="2" max="8" value="5"><output id="perf-k-out" for="perf-k">5</output></div>
+          <div class="range-row"><label for="perf-n">任务数 n</label><input type="range" id="perf-n" min="1" max="20" value="6"><output id="perf-n-out" for="perf-n">6</output></div>
+          <div class="formula" id="perf-formula"></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+          <div class="readout" id="perf-out"></div>
+          <div class="panel">
+            <div class="panel-head"><span class="panel-title">时空图</span><span class="legend"><span><svg width="14" height="12"><rect x="1" y="1" width="12" height="10" rx="2" style="fill:color-mix(in srgb,var(--accent) 22%,var(--surface));stroke:var(--accent)"></rect></svg>段被占用</span><span><svg width="14" height="12"><rect x="1" y="1" width="12" height="10" rx="2" style="fill:var(--surface);stroke:var(--line)"></rect></svg>段空闲（装入 / 排空）</span></span></div>
+            <div class="scroll-x"><svg class="chart" id="perf-st"></svg></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><span class="panel-title" id="perf-chart-title">效率 E 随 n 的变化（k = 5）</span></div>
+            <div class="scroll-x"><svg class="line-svg" id="perf-line" viewBox="0 0 600 230" role="img" aria-label="效率随任务数变化的曲线"></svg></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 5.6.3 ================= -->
+<section class="sec" id="s3">
+  <div class="wrap sec-in">
+    <header class="sec-head">
+      <p class="eyebrow">5.6.3</p>
+      <h2>MIPS 指令的流水段</h2>
+      <p class="lead">每条 MIPS 指令的前两个功能段都一样：取指（Ifetch）和读寄存器 / 译码（Reg/Dec），后面的段因指令类型而异。lw 最复杂，用满 5 段，所以流水线定为 5 段；其他指令插入“空段”对齐。</p>
+    </header>
+    <div class="prose">
+      <p>插入空段要遵循两条原则：</p>
+      <ol>
+        <li>每个功能部件在一条指令中至多使用一次（例如同一条指令不能两次使用寄存器写口）；</li>
+        <li>同一功能部件必须在固定的段使用（例如写寄存器总在第 5 段）。</li>
+      </ol>
+    </div>
+    <div class="seg" id="mips-tabs" role="tablist" aria-label="指令类型"></div>
+    <div class="panel mips" id="mips-panel">
+      <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+        <div><p class="eyebrow" id="mips-asm">add rd, rs, rt</p></div>
+        <div class="rtl" id="mips-rtl"></div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <span class="small muted">本指令需要的功能段（对应教材图 5.23～5.25）</span>
+          <div class="strip" id="mips-own"></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <span class="small muted">对齐到 5 段流水线后</span>
+          <div class="strip" id="mips-aligned"></div>
+        </div>
+        <p class="note" id="mips-note"></p>
+      </div>
+      <ol class="mips-steps" id="mips-steps"></ol>
+    </div>
+    <div class="block">
+      <h3>三类指令在各流水段中的操作</h3>
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead><tr><th>指令</th><th>IF</th><th>ID</th><th>EX</th><th>MEM</th><th>WB</th></tr></thead>
+          <tbody>
+            <tr><td>ALU 运算</td><td>取指</td><td>译码，读寄存器堆</td><td>执行</td><td class="dash">—</td><td>结果写回寄存器堆</td></tr>
+            <tr><td>取数 / 存数</td><td>取指</td><td>译码，读寄存器堆</td><td>计算访存有效地址</td><td>访存（读 / 写）</td><td>读出的数据写入寄存器堆 / —</td></tr>
+            <tr><td>转移</td><td>取指</td><td>译码，读寄存器堆</td><td>计算转移目标地址，设置条件码</td><td>若条件成立，将转移目标地址送 PC</td><td class="dash">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 5.6.4 ================= -->
+<section class="sec" id="s4">
+  <div class="wrap sec-in">
+    <header class="sec-head">
+      <p class="eyebrow">5.6.4</p>
+      <h2>流水线的冒险与处理</h2>
+      <p class="lead">某些情况下，后续指令无法在预定的周期执行，流水线被迫阻塞，这称为流水线冒险。按成因分为三类。</p>
+      <div class="hero-chips"><span class="kd">阻塞的原因 2010 · 2025</span></div>
+    </header>
+
+    <div class="hz" id="hazards">
+      <article>
+        <div><h3>结构冒险</h3><span class="sub">资源冲突</span></div>
+        <div class="kds"><span class="kd">2016</span></div>
+        <dl>
+          <dt>成因</dt><dd>不同指令在同一周期争用同一个功能部件。典型情况：指令和数据共用一个存储器，第 i 条 load 在第 4 周期 MEM 访存，第 i+3 条指令同一周期要 IF 取指。</dd>
+          <dt>解决</dt><dd><ol><li>暂停后续指令的取指一个周期；</li><li>每个部件在每条指令中只用一次，且固定在某一段使用；</li><li>增加资源：指令 Cache 与数据 Cache 分离，寄存器堆读写口分离（前半周期写、后半周期读）。</li></ol></dd>
+        </dl>
+        <div class="acts"><button class="btn btn-sm" type="button" data-preset="struct">演示：共用存储器</button></div>
+      </article>
+      <article>
+        <div><h3>数据冒险</h3><span class="sub">数据相关</span></div>
+        <div class="kds"><span class="kd">2012 · 2014 · 2016 · 2019 · 2023 · 2024</span></div>
+        <dl>
+          <dt>成因</dt><dd>后面的指令要用前面指令的结果，而结果还没写回。在按序发射、按序完成的流水线中，只会出现写后读（RAW）冒险。</dd>
+          <dt>解决</dt><dd><ol><li>延迟执行：硬件阻塞（插入气泡），或由编译器插入 nop；</li><li>转发（旁路）：把 EX/MEM、MEM/WB 中的结果直接送到 ALU 输入端；</li><li>load-use：转发后仍要阻塞 1 个周期，最好由编译器调整指令顺序避开。</li></ol></dd>
+        </dl>
+        <div class="acts">
+          <button class="btn btn-sm" type="button" data-preset="raw">无转发</button>
+          <button class="btn btn-sm" type="button" data-preset="raw-split">前写后读</button>
+          <button class="btn btn-sm" type="button" data-preset="fwd">转发</button>
+          <button class="btn btn-sm" type="button" data-preset="loaduse">load-use</button>
+        </div>
+      </article>
+      <article>
+        <div><h3>控制冒险</h3><span class="sub">控制相关</span></div>
+        <div class="kds"><span class="kd">2014 · 2023</span></div>
+        <dl>
+          <dt>成因</dt><dd>转移、返回、中断或异常改变了 PC，已经按顺序取入流水线的指令可能作废。本模型中 beq / bne 在 EX 段比较、MEM 段末才确定是否写 PC，延迟 C = 3 个周期；j 在 EX 段更新 PC，延迟 2 个周期。</dd>
+          <dt>解决</dt><dd><ol><li>延迟分支：在分支后插入 C 条 nop，或由硬件阻塞；</li><li>分支预测：静态预测总是“跳”或“不跳”，动态预测按历史调整。预测错误时冲刷已取入的错误路径指令。</li></ol></dd>
+        </dl>
+        <div class="acts">
+          <button class="btn btn-sm" type="button" data-preset="ctrl">硬件阻塞</button>
+          <button class="btn btn-sm" type="button" data-preset="predict">预测失败冲刷</button>
+        </div>
+      </article>
+    </div>
+    <p class="note"><b>注意</b>：Cache 缺失、中断或异常同样会引起流水线阻塞。</p>
+
+    <div class="block" id="sim">
+      <div class="block-head"><h3>冒险模拟器</h3></div>
+      <p class="muted small" style="max-width:76ch">每行一条指令，支持 MIPS 写法和真题里的写法，<code class="inl">#</code> 或 <code class="inl">//</code> 后为注释。改选项后右侧立即重算；点周期号或方格可跳到该周期。真题预设的结果与标准答案的表格一致。</p>
+      <div class="sim">
+        <div class="sim-top">
+          <div class="panel sim-edit">
+            <label class="field" for="sim-preset"><span>预设</span><select id="sim-preset"></select></label>
+            <p class="preset-note" id="sim-note"></p>
+            <label class="field" for="sim-code"><span>指令序列</span><textarea id="sim-code" wrap="off" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea></label>
+            <p class="err" id="sim-err" hidden></p>
+            <details class="syntax">
+              <summary>支持的写法</summary>
+              <div>
+                <span><code class="inl">add rd, rs, rt</code> / <code class="inl">addi rt, rs, 20</code>：第一个寄存器为目的</span>
+                <span><code class="inl">lw rt, 12(rs)</code> / <code class="inl">LOAD R1, [a]</code>：取数</span>
+                <span><code class="inl">sw rt, 0(rs)</code> / <code class="inl">STORE R2, [x]</code>：存数</span>
+                <span><code class="inl">beq / bne rs, rt, label</code>，<code class="inl">j label</code>，<code class="inl">nop</code></span>
+                <span>两操作数 <code class="inl">ADD Rs, Rd</code> 按 2012 真题理解为 (Rs)+(Rd)→Rd；单操作数 <code class="inl">SHL Rd</code> 读写同一寄存器</span>
+              </div>
+            </details>
+            <ol class="parsed" id="sim-parsed" aria-label="解析结果"></ol>
+          </div>
+          <div class="panel sim-opts">
+            <div class="opts" role="group" aria-labelledby="og-data">
+              <p class="opts-t" id="og-data">数据冒险</p>
+              <label class="check" for="opt-fwd"><input type="checkbox" id="opt-fwd"><span><b>转发（旁路）</b><small>ALU 结果在 EX 段末可用，load 结果在 MEM 段末可用</small></span></label>
+              <label class="check" id="opt-split-lab" for="opt-split"><input type="checkbox" id="opt-split"><span><b>寄存器堆前半周期写、后半周期读</b><small id="opt-split-hint">WB 与 ID 可在同一周期，少等 1 个周期</small></span></label>
+              <div class="field"><span>处理方式</span><div class="seg" id="opt-mode" role="group" aria-label="处理方式"><button type="button" data-v="stall" aria-pressed="true">硬件阻塞（气泡）</button><button type="button" data-v="nop" aria-pressed="false">编译器插入 nop</button></div></div>
+            </div>
+            <div class="opts" role="group" aria-labelledby="og-ctrl">
+              <p class="opts-t" id="og-ctrl">控制冒险</p>
+              <label class="field" for="opt-branch"><span>分支处理</span><select id="opt-branch"><option value="stall">阻塞，直到转移结果确定</option><option value="predict">静态预测：总是不跳转</option></select></label>
+              <label class="field" for="opt-taken" id="opt-taken-lab"><span>分支实际结果</span><select id="opt-taken"><option value="1">跳转（预测失败）</option><option value="0">不跳转（预测成功）</option></select></label>
+              <p class="small muted" id="opt-branch-hint" hidden>插入 nop 模式下，控制冒险同样由编译器在分支后补 nop。</p>
+            </div>
+            <div class="opts" role="group" aria-labelledby="og-struct">
+              <p class="opts-t" id="og-struct">结构冒险</p>
+              <label class="check" for="opt-unified"><input type="checkbox" id="opt-unified"><span><b>指令和数据共用一个存储器</b><small>IF 取指与 load / store 的 MEM 不能在同一周期</small></span></label>
+            </div>
+          </div>
+        </div>
+        <div class="stats" id="sim-stats"></div>
+        <div class="panel">
+          <div class="panel-head">
+            <div class="seg" id="sim-view" role="group" aria-label="视图"><button type="button" data-v="inst" aria-pressed="true">指令-时间图</button><button type="button" data-v="stage" aria-pressed="false">时空图</button></div>
+            <div class="legend">
+              <span><svg width="16" height="12"><rect x="1" y="1" width="14" height="10" rx="2" style="fill:var(--surface);stroke:var(--muted);stroke-dasharray:3 2"></rect></svg>空段</span>
+              <span><svg width="16" height="12"><rect x="1" y="1" width="14" height="10" rx="2" style="fill:url(#hatch);stroke:var(--stall)"></rect></svg>阻塞</span>
+              <span><svg width="22" height="12"><path d="M2 10 L18 3" style="stroke:var(--ink);stroke-width:1.6" marker-end="url(#ah)"></path></svg>转发 / 写后读</span>
+              <span><svg width="16" height="12"><rect x="1" y="1" width="14" height="10" rx="2" style="fill:var(--surface-2);stroke:var(--muted)"></rect></svg>nop / 冲刷</span>
+            </div>
+          </div>
+          <div class="pipe-chart chart-wrap" id="sim-chart-wrap" tabindex="0" aria-label="流水线图，可用左右方向键切换周期">
+            <svg class="chart pc-lab" id="sim-lab" aria-hidden="true"></svg>
+            <div class="scroll-x pc-grid" id="sim-grid-wrap"><svg class="chart" id="sim-chart"></svg></div>
+          </div>
+          <div class="player">
+            <button class="btn btn-sm btn-icon" type="button" id="pl-first" aria-label="回到第 1 周期">⏮</button>
+            <button class="btn btn-sm btn-icon" type="button" id="pl-prev" aria-label="上一周期">◀</button>
+            <button class="btn btn-sm btn-primary" type="button" id="pl-play">逐周期播放</button>
+            <button class="btn btn-sm btn-icon" type="button" id="pl-next" aria-label="下一周期">▶</button>
+            <button class="btn btn-sm btn-icon" type="button" id="pl-last" aria-label="跳到最后">⏭</button>
+            <label class="field-row small" for="pl-speed">速度 <select id="pl-speed"><option value="1200">慢</option><option value="750" selected>中</option><option value="380">快</option></select></label>
+            <span class="cyc" id="pl-cyc" aria-live="polite"></span>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><span class="panel-title">数据通路 · <span id="dp-cap">第 1 周期</span></span></div>
+          <div class="scroll-x"><svg class="dp" id="sim-dp" role="img" aria-label="当前周期的数据通路状态"></svg></div>
+          <ul class="events" id="sim-events"></ul>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><span class="panel-title">相关与冒险分析</span></div>
+          <ul class="log" id="sim-log"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 5.6.5 ================= -->
+<section class="sec" id="s5">
+  <div class="wrap sec-in">
+    <header class="sec-head">
+      <p class="eyebrow">5.6.5</p>
+      <h2>高级流水线技术</h2>
+      <p class="lead">提高指令级并行有两条路：多发射（一个周期发射多条指令，分为动态的超标量与静态的超长指令字），以及超流水线（把段再细分、提高主频）。三张图使用同一时间刻度，长度可以直接比较。</p>
+      <div class="hero-chips"><span class="kd">超标量特性 2017</span><span class="kd">CPI 比较 2020</span></div>
+    </header>
+    <div class="panel" id="adv">
+      <div class="adv-ctrl">
+        <div class="range-row"><label for="adv-k">段数 k</label><input type="range" id="adv-k" min="3" max="5" value="4"><output id="adv-k-out" for="adv-k">4</output></div>
+        <div class="range-row"><label for="adv-n">指令数 n</label><input type="range" id="adv-n" min="2" max="24" value="8"><output id="adv-n-out" for="adv-n">8</output></div>
+        <div class="range-row"><label for="adv-m">度 m</label><input type="range" id="adv-m" min="2" max="4" value="2"><output id="adv-m-out" for="adv-m">2</output></div>
+      </div>
+    </div>
+    <div class="adv-figs" id="adv-figs"></div>
+    <div class="tbl-wrap">
+      <table class="tbl">
+        <thead><tr><th>技术</th><th>并行从哪来</th><th>理想情况下</th><th>谁来调度</th><th>代价</th></tr></thead>
+        <tbody>
+          <tr><td>普通标量流水线</td><td>时间并行</td><td>每周期完成 1 条，CPI = 1</td><td>按序</td><td>需处理三类冒险</td></tr>
+          <tr><td>超标量（动态多发射）</td><td>多套功能部件，一个周期发射多条独立指令</td><td>每周期完成 m 条，CPI &lt; 1</td><td>硬件动态调度，可乱序执行</td><td>需多套功能部件、译码电路，控制复杂</td></tr>
+          <tr><td>超长指令字 VLIW（静态多发射）</td><td>编译器把多条可并行操作打包成一条长指令</td><td>每周期执行多个操作，CPI &lt; 1</td><td>编译器静态调度</td><td>对编译器要求高，也需多套功能部件</td></tr>
+          <tr><td>超流水线</td><td>把段再细分，缩短时钟周期</td><td>每个（更短的）周期完成 1 条，CPI = 1，主频更高</td><td>按序</td><td>段寄存器开销与控制复杂度增加，级数并非越多越好</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 5.6.6 ================= -->
+<section class="sec" id="s6">
+  <div class="wrap sec-in">
+    <header class="sec-head">
+      <p class="eyebrow">5.6.6</p>
+      <h2>真题自测</h2>
+      <p class="lead">选项点下去就判分并给出解析；带“在模拟器中验证”按钮的题，可以把指令序列直接载入上面的模拟器，对照时空图理解答案。作答记录只保存在你自己的浏览器里。</p>
+    </header>
+    <div class="quiz-bar">
+      <div class="seg" id="quiz-filter" role="group" aria-label="筛选"><button type="button" data-v="all" aria-pressed="true">全部</button><button type="button" data-v="real" aria-pressed="false">统考真题</button><button type="button" data-v="ex" aria-pressed="false">练习</button></div>
+      <button class="btn btn-sm" type="button" id="quiz-reset">清空作答</button>
+      <span class="prog" id="quiz-prog"></span>
+    </div>
+    <ol class="quiz" id="quiz-list"></ol>
+
+    <div class="block">
+      <h3>综合应用题拆解</h3>
+      <div class="cases">
+        <details class="case">
+          <summary>2012 统考 · 16 位计算机的 5 段流水线</summary>
+          <div class="case-body">
+            <p>条件：IF、ID、EX、M、WB 五段；按序发射、按序完成；<b>没有转发</b>；<b>同一寄存器的读和写不能在同一个周期进行</b>。ADD Rs, Rd 表示 (Rs)+(Rd)→Rd，LOAD Rd, mem 表示 (mem)→Rd，STORE Rs, mem 表示 (Rs)→mem。</p>
+            <ol>
+              <li><b>连续 4 条无阻塞的指令要多少个周期？</b>第 1 条要 5 个周期，之后每周期完成 1 条：4 + (5 − 1) = 8 个周期。</li>
+              <li><b>x = a + b：I3 的 ID 段和 I4 的 IF 段为什么被阻塞？</b>I3（ADD R1, R2）要读 R1、R2，必须等 I2 在第 6 周期写回 R2 后，第 7 周期才能读，因此 I3 的 ID 被阻塞。I3 停在 IF/ID 段寄存器中不能前进，取指部件没有地方放新指令（按序发射），所以 I4 的 IF 被推迟到第 7 周期。整段共 14 个周期。 <button class="btn btn-sm" type="button" data-preset="z2012a">在模拟器中验证</button></li>
+              <li><b>x = x*2 + a 最少要多少个周期？</b>乘 2 用左移实现：LOAD R1,[x]；LOAD R2,[a]；SHL R1；ADD R1,R2；STORE R2,[x]。相邻指令依次相关，共 17 个周期。 <button class="btn btn-sm" type="button" data-preset="z2012b">在模拟器中验证</button></li>
+            </ol>
+          </div>
+        </details>
+        <details class="case">
+          <summary>2014 统考 · 循环 sum += A[i] 的阻塞分析</summary>
+          <div class="case-body">
+            <p>条件：IF、ID、EXE、MEM、WB 五段；按序发射、按序完成；<b>不采用任何转发</b>；分支指令引起 3 个周期的阻塞。</p>
+            <ol>
+              <li><b>哪些指令因数据相关而阻塞？</b>第 2、3、4、6 条，它们都用到紧邻前一条指令的结果（R4、R4、R5、R2）。</li>
+              <li><b>哪条指令引起控制冒险？</b>第 6 条 bne，转移结果到 MEM 段末才确定，下一轮的第 1 条指令要推迟 3 个周期取指。</li>
+              <li><b>为什么第 1 条指令不会因与第 5 条的数据相关而阻塞？</b>第 6 条 bne 本身就要等第 5 条写回 R2，而 bne 又让下一轮的第 1 条再推迟 3 个周期，等它读 R2 时早已写回。 <button class="btn btn-sm" type="button" data-preset="z2014">在模拟器中验证</button></li>
+            </ol>
+          </div>
+        </details>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">依据 408 统考大纲与历年真题整理的学习工具。流水线时序的建模约定写在同目录的 README.md 中。</div>
+</footer>
+
+<script>
+(function () {
+'use strict';
+
+/* ================================================================
+ * 通用工具
+ * ================================================================ */
+const $ = (s, r) => (r || document).querySelector(s);
+const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const clip = (s, n) => (s.length > n ? s.slice(0, n - 1) + '…' : s);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* 存储不可用时忽略 */ } }
+};
+const reduceMotion = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+/* ---------- 深浅色切换 ---------- */
+(function theme() {
+  const saved = store.get('pl-theme', null);
+  if (saved === 'dark' || saved === 'light') document.documentElement.setAttribute('data-theme', saved);
+  $('#theme-btn').addEventListener('click', () => {
+    const cur = document.documentElement.getAttribute('data-theme') ||
+      (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    const next = cur === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    store.set('pl-theme', next);
+  });
+})();
+
+/* ---------- 悬停提示 ---------- */
+const tip = $('#tip');
+function showTip(text, x, y) {
+  tip.textContent = text;
+  tip.hidden = false;
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  let left = x + 14, top = y + 16;
+  if (left + w > window.innerWidth - 8) left = Math.max(8, x - w - 14);
+  if (top + h > window.innerHeight - 8) top = Math.max(8, y - h - 12);
+  tip.style.left = left + 'px';
+  tip.style.top = top + 'px';
+}
+function onTipPointer(e) {
+  const t = e.target && e.target.closest ? e.target.closest('[data-tip]') : null;
+  if (!t) { if (!tip.dataset.sticky) tip.hidden = true; return; }
+  tip.dataset.sticky = '';
+  showTip(t.getAttribute('data-tip'), e.clientX, e.clientY);
+}
+document.addEventListener('pointermove', onTipPointer);
+document.addEventListener('pointerdown', onTipPointer);
+document.addEventListener('scroll', () => { tip.hidden = true; }, { passive: true });
+
+/* ================================================================
+ * 1. 指令解析
+ * ================================================================ */
+const STAGES = ['IF', 'ID', 'EX', 'MEM', 'WB'];
+const STAGE_CN = { IF: '取指', ID: '译码/读寄存器', EX: '执行', MEM: '访存', WB: '写回' };
+const EMPTY = { alu: ['MEM'], load: [], store: ['WB'], branch: ['WB'], jump: ['MEM', 'WB'], nop: ['ID', 'EX', 'MEM', 'WB'] };
+const NOP = { text: 'nop', opRaw: 'nop', op: 'nop', kind: 'nop', dst: null, srcs: [] };
+
+const REG_RE = /^\$?(r\d{1,2}|x\d{1,2}|[stavk]\d|zero|at|gp|sp|fp|ra)$/i;
+const isReg = t => REG_RE.test(String(t).trim());
+const normReg = t => String(t).trim().replace(/^\$/, '').toLowerCase();
+const KIND = Object.create(null);
+'add addu sub subu and or xor nor slt sltu mul mult div sll srl sra sllv srlv srav addi addiu andi ori xori slti sltiu lui li la mov move not neg shl shr sal sar inc dec'
+  .split(' ').forEach(o => { KIND[o] = 'alu'; });
+'lw lb lh lbu lhu ld load'.split(' ').forEach(o => { KIND[o] = 'load'; });
+'sw sb sh sd store st'.split(' ').forEach(o => { KIND[o] = 'store'; });
+'beq bne blt bgt ble bge beqz bnez bltz bgtz blez bgez jz jnz jc bra'.split(' ').forEach(o => { KIND[o] = 'branch'; });
+'j jmp jal jr jalr jump b'.split(' ').forEach(o => { KIND[o] = 'jump'; });
+KIND.nop = 'nop';
+const NO_SRC_ALU = new Set(['lui', 'li', 'la']);
+
+function parseProgram(src) {
+  const prog = [], errors = [], names = Object.create(null);
+  const reg = t => { const n = normReg(t); if (!names[n]) names[n] = String(t).trim().replace(/^\$/, ''); return n; };
+  const baseReg = s => {
+    const m = s.match(/\(\s*(\$?\w+)\s*\)/);
+    if (m && isReg(m[1])) return [reg(m[1])];
+    if (isReg(s)) return [reg(s)];
+    return [];
+  };
+  let pendingLabel = '';
+  src.split(/\r?\n/).forEach((line, i) => {
+    let note = '';
+    const cm = line.match(/#|\/\/|;/);
+    if (cm) { note = line.slice(cm.index + cm[0].length).trim(); line = line.slice(0, cm.index); }
+    line = line.trim();
+    let label = '';
+    const lm = line.match(/^([A-Za-z_][\w.]*)\s*:/);
+    if (lm) { label = lm[1]; line = line.slice(lm[0].length).trim(); }
+    if (!line) { if (label) pendingLabel = label; return; }
+    if (!label) label = pendingLabel;
+    pendingLabel = '';
+    const m = line.match(/^(\S+)\s*(.*)$/);
+    const op = m[1].toLowerCase();
+    const kind = KIND[op];
+    if (!kind) { errors.push(`第 ${i + 1} 行：无法识别的指令“${m[1]}”`); return; }
+    const ops = m[2].trim() ? m[2].split(',').map(s => s.trim()).filter(Boolean) : [];
+    let dst = null, srcs = [];
+    if (kind === 'alu') {
+      const regs = ops.filter(isReg);
+      if (op === 'mov' || op === 'move' || op === 'not' || op === 'neg') {
+        dst = regs[0] ? reg(regs[0]) : null;
+        srcs = regs.slice(1).map(reg);
+        if (!srcs.length && dst && (op === 'not' || op === 'neg')) srcs = [dst];
+      } else if (NO_SRC_ALU.has(op)) {
+        dst = regs[0] ? reg(regs[0]) : null;
+      } else if (ops.length >= 3) {
+        dst = isReg(ops[0]) ? reg(ops[0]) : null;
+        srcs = ops.slice(1).filter(isReg).map(reg);
+      } else if (ops.length === 2 && regs.length === 2) {
+        // 2012 真题写法：ADD Rs, Rd 表示 (Rs)+(Rd)→Rd
+        srcs = regs.map(reg); dst = srcs[1];
+      } else if (regs.length >= 1) {
+        dst = reg(regs[0]); srcs = [dst];
+      }
+    } else if (kind === 'load') {
+      if (ops[0] && isReg(ops[0])) dst = reg(ops[0]);
+      if (ops[1]) srcs = baseReg(ops[1]);
+    } else if (kind === 'store') {
+      if (ops[0] && isReg(ops[0])) srcs.push(reg(ops[0]));
+      if (ops[1]) srcs = srcs.concat(baseReg(ops[1]));
+    } else if (kind === 'branch' || kind === 'jump') {
+      srcs = ops.filter(isReg).map(reg);
+      if (op === 'jal' || op === 'jalr') dst = 'ra';
+    }
+    srcs = Array.from(new Set(srcs)).filter(r => r !== 'zero');
+    if (dst === 'zero') dst = null;
+    if (kind !== 'nop' && kind !== 'jump' && kind !== 'branch' && !dst && !srcs.length && kind !== 'store') {
+      errors.push(`第 ${i + 1} 行：没有找到寄存器操作数`);
+    }
+    prog.push({ line: i + 1, label, op, opRaw: m[1], text: m[1] + (ops.length ? ' ' + ops.join(', ') : ''), kind, dst, srcs, note });
+  });
+  return { prog, errors, names };
+}
+
+/* ================================================================
+ * 2. 流水线调度（按序发射、按序完成的 5 段流水线）
+ *    约定：每段 1 周期；每段同一时刻只容纳一条指令；
+ *    阻塞的指令停在原段，后续指令不能越过它。
+ * ================================================================ */
+function simulate(prog, opts) {
+  const o = Object.assign({ fwd: false, split: false, mode: 'stall', branch: 'stall', taken: true, unified: false }, opts || {});
+  const split = !!(o.fwd || o.split);          // 开启转发时默认寄存器堆前写后读
+  const rows = [], deps = [];
+  const memBusy = new Map();                    // 统一存储器：周期 → 占用 MEM 的指令
+  const lastWriter = Object.create(null);
+  let prev = null, pending = null, n = 0;
+
+  // 在 p 之后放一条指令，c 为附加约束（各段的最早周期）
+  function place(p, c) {
+    c = c || {};
+    const gaps = [];
+    const natIF = p ? Math.max(p.t.IF + 1, p.t.ID) : 1;
+    let IF = Math.max(natIF, c.IF || 0);
+    for (let x = natIF; x < IF; x++) gaps.push({ cycle: x, before: 'IF', why: 'ctrl', ref: c.ref || null });
+    if (o.unified) while (memBusy.has(IF)) { gaps.push({ cycle: IF, before: 'IF', why: 'struct', ref: memBusy.get(IF) }); IF++; }
+    const natID = Math.max(IF + 1, p ? p.t.EX : 0);
+    for (let x = IF + 1; x < natID; x++) gaps.push({ cycle: x, before: 'ID', why: 'hold', ref: p });
+    const ID = Math.max(natID, c.ID || 0);
+    for (let x = natID; x < ID; x++) gaps.push({ cycle: x, before: 'ID', why: 'data' });
+    const natEX = Math.max(ID + 1, p ? p.t.MEM : 0);
+    const EX = Math.max(natEX, c.EX || 0);
+    for (let x = natEX; x < EX; x++) gaps.push({ cycle: x, before: 'EX', why: 'data' });
+    return { t: { IF, ID, EX, MEM: EX + 1, WB: EX + 2 }, gaps };
+  }
+  function addNop(reason) {
+    const pl = place(prev, {});
+    const r = { kind: 'nop', id: 'nop', ins: NOP, t: pl.t, gaps: pl.gaps, reason, deps: [] };
+    rows.push(r); prev = r;
+    return r;
+  }
+
+  for (const ins of prog) {
+    let cIF = 0, ctrlRef = null, flushed = false;
+    if (pending) {
+      const br = pending.row, resolve = pending.resolve;
+      if (o.mode === 'nop') {
+        let k = 0;
+        while (place(prev, {}).t.IF <= resolve) { addNop('ctrl').ref = br; k++; }
+        br.ctrl = { mode: 'nop', resolve, nops: k };
+      } else if (o.branch === 'predict') {
+        const taken = br.ins.kind === 'jump' || o.taken;
+        if (taken) {
+          let pp = br, k = 0;
+          for (;;) {
+            const pl = place(pp, {});
+            if (pl.t.IF > resolve) break;
+            const t = {};
+            STAGES.forEach(s => { if (pl.t[s] <= resolve) t[s] = pl.t[s]; });
+            rows.push({ kind: 'flush', id: '×', ins: null, t, gaps: pl.gaps.filter(g => g.cycle <= resolve), resolve, ref: br, deps: [] });
+            pp = { t: pl.t }; k++;
+          }
+          cIF = resolve + 1; ctrlRef = br; flushed = true;
+          br.ctrl = { mode: 'predict', taken: true, resolve, flushed: k };
+        } else {
+          br.ctrl = { mode: 'predict', taken: false, resolve };
+        }
+      } else {
+        cIF = resolve + 1; ctrlRef = br;
+        br.ctrl = { mode: 'stall', resolve };
+      }
+      pending = null;
+    }
+
+    // 数据相关：找每个源寄存器最近的写者
+    const cons = { ID: 0, EX: 0 }, dl = [];
+    for (const r of ins.srcs) {
+      const p = lastWriter[r];
+      if (!p) continue;
+      if (o.fwd) {
+        const at = (p.ins.kind === 'load' ? p.t.MEM : p.t.EX) + 1;   // 结果可被转发到 EX 的最早周期
+        cons.EX = Math.max(cons.EX, at); dl.push({ p, r, need: 'EX', at });
+      } else {
+        const at = p.t.WB + (split ? 0 : 1);                        // ID 段读到新值的最早周期
+        cons.ID = Math.max(cons.ID, at); dl.push({ p, r, need: 'ID', at });
+      }
+    }
+    const prev0 = prev;
+    const base0 = place(prev0, { IF: cIF, ref: ctrlRef });
+    const nopRows = [];
+    if (o.mode === 'nop') {
+      for (;;) {
+        const b = place(prev, { IF: cIF, ref: ctrlRef });
+        const f = place(prev, { IF: cIF, ref: ctrlRef, ID: cons.ID, EX: cons.EX });
+        if (f.t.WB === b.t.WB) break;
+        nopRows.push(addNop('data'));
+      }
+    }
+    const fin = place(prev, { IF: cIF, ref: ctrlRef, ID: cons.ID, EX: cons.EX });
+    n++;
+    const row = {
+      kind: 'real', id: 'I' + n, n, ins, t: fin.t,
+      gaps: flushed ? fin.gaps.filter(g => g.why !== 'ctrl') : fin.gaps,
+      deps: [], dataNops: nopRows.length
+    };
+    nopRows.forEach(x => { x.ref = row; });
+    for (const d of dl) {
+      const hazard = base0.t.ID < d.p.t.WB + (split ? 0 : 1);
+      let via = 'RF';
+      if (o.fwd && hazard) {
+        if (d.p.ins.kind !== 'load' && fin.t.EX === d.p.t.EX + 1) via = 'EX/MEM';
+        else if (fin.t.EX <= d.p.t.WB) via = 'MEM/WB';
+      }
+      const alone = place(prev0, { IF: cIF, [d.need]: d.at });
+      const dep = { from: d.p, to: row, reg: d.r, need: d.need, at: d.at, hazard, via, stall: alone.t.WB - base0.t.WB };
+      deps.push(dep); row.deps.push(dep);
+    }
+    if (o.unified && (ins.kind === 'load' || ins.kind === 'store')) memBusy.set(row.t.MEM, row);
+    if (ins.dst) lastWriter[ins.dst] = row;
+    rows.push(row); prev = row;
+    if (ins.kind === 'branch') pending = { row, resolve: row.t.MEM };
+    else if (ins.kind === 'jump') pending = { row, resolve: row.t.EX };
+  }
+
+  let total = 0;
+  rows.forEach(r => STAGES.forEach(s => { if (r.t[s] != null) total = Math.max(total, r.t[s]); }));
+
+  // 读后写、写后写：按序流水线中不会引起冒险，仅作说明
+  const real = rows.filter(r => r.kind === 'real'), others = [];
+  for (let a = 0; a < real.length; a++) {
+    for (let b = a + 1; b < real.length && b <= a + 3; b++) {
+      const A = real[a].ins, B = real[b].ins;
+      if (B.dst && A.srcs.includes(B.dst)) others.push({ type: 'WAR', from: real[a], to: real[b], reg: B.dst });
+      if (A.dst && B.dst && A.dst === B.dst) others.push({ type: 'WAW', from: real[a], to: real[b], reg: A.dst });
+    }
+  }
+  const sim = { rows, deps, others, total, n, opts: o, split, names: {} };
+  sim.occ = buildOcc(sim);
+  return sim;
+}
+
+// 每个周期各段被哪条指令占用；held 表示指令停在该段（阻塞）
+function buildOcc(sim) {
+  const occ = [];
+  for (let c = 0; c <= sim.total; c++) occ[c] = {};
+  sim.rows.forEach(r => {
+    STAGES.forEach((s, k) => {
+      const ts = r.t[s];
+      if (ts == null) return;
+      let end = ts;
+      const nx = STAGES[k + 1];
+      if (nx && r.t[nx] != null) end = r.t[nx] - 1;
+      else if (r.kind === 'flush') end = r.resolve;
+      for (let c = ts; c <= end && c <= sim.total; c++) {
+        occ[c][s] = { row: r, held: c > ts, flushing: r.kind === 'flush' && c === r.resolve };
+      }
+    });
+  });
+  return occ;
+}
+
+const dispReg = (sim, r) => (sim.names && sim.names[r]) || r;
+const isEmptyStage = (r, s) => r.kind !== 'flush' && EMPTY[r.ins.kind].includes(s);
+const listCN = a => Array.from(new Set(a)).join('、');
+
+function stageDesc(sim, r, s) {
+  if (r.kind === 'flush') return '分支预测失败前按顺序取入的指令，转移确定后被冲刷作废';
+  const ins = r.ins, R = x => dispReg(sim, x);
+  if (isEmptyStage(r, s)) return r.kind === 'nop' ? 'nop 不做任何操作' : '本指令在这一段没有操作（空段），只为与其他指令对齐';
+  const srcs = ins.srcs.map(R).join('、');
+  switch (s) {
+    case 'IF': return `按 PC 从指令存储器取出“${ins.text}”，PC ← PC + 4`;
+    case 'ID': return srcs ? `译码，并从寄存器堆读出 ${srcs}` : '译码';
+    case 'EX': return { alu: 'ALU 完成运算，结果送入 EX/MEM', load: '计算访存地址（基址 + 偏移）', store: '计算访存地址（基址 + 偏移）', branch: '比较两个寄存器，并计算转移目标地址', jump: '计算目标地址并更新 PC' }[ins.kind] || '';
+    case 'MEM': return { load: '按地址读数据存储器，数据送入 MEM/WB', store: `把 ${R(ins.srcs[0] || '')} 写入数据存储器`, branch: '若条件成立，把目标地址写入 PC' }[ins.kind] || '';
+    case 'WB': return ins.dst ? `把结果写回寄存器 ${R(ins.dst)}${sim.split ? '（前半周期）' : ''}` : '';
+  }
+  return '';
+}
+const SHORT = {
+  IF: () => '取指',
+  ID: () => '译码·读寄存器',
+  EX: k => ({ alu: 'ALU 运算', load: '算地址', store: '算地址', branch: '比较·算目标', jump: '更新 PC' }[k] || ''),
+  MEM: k => ({ load: '读存储器', store: '写存储器', branch: '写 PC' }[k] || ''),
+  WB: () => '写回'
+};
+
+function gapText(sim, r, g) {
+  const R = x => dispReg(sim, x);
+  if (g.why === 'ctrl') {
+    const b = g.ref;
+    if (!b) return '暂停取指';
+    return `${b.id}（${b.ins.opRaw}）的转移结果${b.ins.kind === 'jump' ? '在 EX 段末' : '要到 MEM 段末'}才确定，暂停取指，${r.id} 等待取指`;
+  }
+  if (g.why === 'struct') return `${g.ref.id} 正在 MEM 段访问存储器，与取指冲突（结构冒险），${r.id} 推迟一个周期取指`;
+  if (g.why === 'hold') return `${g.ref ? g.ref.id : '前一条指令'} 阻塞未前进，${r.id} 只能停在 IF 段，PC 和 IF/ID 保持不变`;
+  const ds = r.deps.filter(d => d.need === g.before && d.at > g.cycle);
+  const regs = listCN(ds.map(d => R(d.reg))), froms = listCN(ds.map(d => d.from.id));
+  if (g.before === 'ID') return `${r.id} 要在 ID 段读 ${regs || '源寄存器'}，但 ${froms || '前面的指令'} 还没写回 → ID 段被阻塞，指令停在 IF/ID，向后插入气泡`;
+  return `${r.id} 要用的 ${regs} 要等 ${froms}（load）在 MEM 段末读出，转发也来不及 → 阻塞（load-use）`;
+}
+function cellTip(sim, r, s) {
+  const head = r.kind === 'real' ? `${r.id} ${r.ins.text}` : (r.kind === 'nop' ? 'nop（插入的空操作）' : '错误路径上的指令');
+  return `${head}\n${s}（${STAGE_CN[s]}）· 第 ${r.t[s]} 周期\n${stageDesc(sim, r, s)}`;
+}
+
+/* ================================================================
+ * 3. 流水线图（指令-时间图 / 时空图）
+ * ================================================================ */
+function renderPipeChart(tg, sim, cur, view, cfg) {
+  cfg = cfg || {};
+  const CW = cfg.cw || 46, RH = cfg.rh || 32, G = 4, PAD = 6;
+  const w = CW - G, hh = RH - G;
+  const LW = view === 'stage' ? 64 : (cfg.lw || 176);
+  const TOP = 52;
+  const T = Math.max(sim.total, 1);
+  const nRows = view === 'stage' ? 5 : sim.rows.length;
+  const W = PAD + T * CW + 40, H = TOP + nRows * RH + 6;
+  const X = c => PAD + (c - 1) * CW, Y = i => TOP + i * RH;
+  const fut = c => (c > cur ? ' future' : '');
+  let h = '', lab = '';
+
+  if (cur >= 1 && cur <= T) h += `<rect class="cur-col" x="${X(cur) - G / 2}" y="${TOP - 48}" width="${CW}" height="${nRows * RH + 48}" rx="6"></rect>`;
+  lab += `<text class="ax-lab" x="${LW - 10}" y="${TOP - 30}" text-anchor="end">周期</text>`;
+  lab += `<text class="ax-lab" x="${LW - 10}" y="${TOP - 9}" text-anchor="end">CLK</text>`;
+  let d = '';
+  for (let c = 1; c <= T; c++) {
+    const x = X(c) - G / 2;
+    h += `<text class="ax${c === cur ? ' ax-cur' : ''}" x="${X(c) + w / 2}" y="${TOP - 30}" text-anchor="middle">${c}</text>`;
+    d += `${c === 1 ? 'M' : 'L'}${x},${TOP - 8} V${TOP - 20} H${x + CW / 2} V${TOP - 8} H${x + CW} `;
+  }
+  h += `<path class="clk" d="${d}"></path>`;
+  for (let c = 1; c <= T + 1; c++) h += `<line class="grid" x1="${X(c) - G / 2}" y1="${TOP - 3}" x2="${X(c) - G / 2}" y2="${TOP + nRows * RH - 2}"></line>`;
+  if (!cfg.static) for (let c = 1; c <= T; c++) h += `<rect class="col-hit" data-cycle="${c}" x="${X(c) - G / 2}" y="${TOP - 46}" width="${CW}" height="40"></rect>`;
+
+  const cell = (x, y, cls, text, tipText, cycle) =>
+    `<g class="cell ${cls}"${cfg.static ? '' : ` data-cycle="${cycle}" data-tip="${esc(tipText)}"`}><rect x="${x}" y="${y}" width="${w}" height="${hh}" rx="5"></rect><text x="${x + w / 2}" y="${y + hh / 2 + 4}" text-anchor="middle">${esc(text)}</text></g>`;
+
+  if (view !== 'stage') {
+    sim.rows.forEach((r, i) => {
+      const y = Y(i), ty = y + hh / 2 + 4;
+      if (r.kind === 'real') {
+        const txt = cfg.compact ? r.ins.opRaw : clip(r.ins.text, 20);
+        lab += `<text x="8" y="${ty}"><tspan class="lab-id">${r.id}</tspan><tspan class="lab-txt" dx="8">${esc(txt)}</tspan></text>`;
+      } else if (r.kind === 'nop') {
+        lab += `<text x="8" y="${ty}" class="lab-muted">nop<tspan class="lab-note" dx="8">${r.reason === 'ctrl' ? '分支后插入' : '为数据冒险插入'}</tspan></text>`;
+      } else {
+        lab += `<text x="8" y="${ty}" class="lab-muted">× 顺序取入的指令</text>`;
+      }
+      r.gaps.forEach(g => { if (g.cycle >= 1) h += cell(X(g.cycle), y, 'stall' + fut(g.cycle), '阻塞', gapText(sim, r, g), g.cycle); });
+      STAGES.forEach(s => {
+        const c = r.t[s];
+        if (c == null) return;
+        const cls = `st-${s}` + (r.kind === 'flush' ? ' flush' : '') + (r.kind === 'nop' ? ' nopc' : '') + (isEmptyStage(r, s) && r.kind !== 'nop' ? ' empty' : '') + fut(c);
+        h += cell(X(c), y, cls, s, cellTip(sim, r, s), c);
+      });
+      if (r.kind === 'flush') {
+        const cs = STAGES.map(s => r.t[s]).filter(v => v != null);
+        const a = Math.min.apply(null, cs), b = Math.max.apply(null, cs);
+        h += `<line class="strike${fut(b)}" x1="${X(a) + 3}" y1="${y + hh / 2}" x2="${X(b) + w - 3}" y2="${y + hh / 2}"></line>`;
+        h += `<text class="flush-lab${fut(b)}" x="${X(b) + w + 6}" y="${ty}">冲刷</text>`;
+      }
+    });
+    if (!cfg.noArrows) {
+      const ri = new Map(sim.rows.map((r, i) => [r, i]));
+      sim.deps.forEach(dp => {
+        if (!dp.hazard) return;
+        const fwd = dp.via === 'EX/MEM' || dp.via === 'MEM/WB';
+        if (sim.opts.fwd && !fwd) return;
+        const sS = fwd ? (dp.from.ins.kind === 'load' ? 'MEM' : 'EX') : 'WB';
+        const tS = fwd ? 'EX' : 'ID';
+        const c1 = dp.from.t[sS], c2 = dp.to.t[tS];
+        if (c2 > cur) return;
+        const i1 = ri.get(dp.from), i2 = ri.get(dp.to);
+        let x1, y1, x2, y2;
+        if (c1 === c2) { x1 = x2 = X(c1) + w * 0.84; y1 = Y(i1) + hh - 3; y2 = Y(i2) + 3; }
+        else { x1 = X(c1) + w * 0.8; y1 = Y(i1) + hh * 0.72; x2 = X(c2) + w * 0.16; y2 = Y(i2) + hh * 0.3; }
+        const R = dispReg(sim, dp.reg);
+        const t = fwd ? `转发：${dp.from.id} 的 ${R} 经 ${dp.via} 送到 ${dp.to.id} 的 ALU 输入端` :
+          (c1 === c2 ? `${dp.from.id} 前半周期写 ${R}，${dp.to.id} 后半周期读出` : `${dp.from.id} 在第 ${c1} 周期写回 ${R}，${dp.to.id} 第 ${c2} 周期才能在 ID 段读取`);
+        const path = `M${x1},${y1} L${x2},${y2}`;
+        h += `<path class="arrow-halo" d="${path}"></path><path class="arrow" d="${path}" marker-end="url(#ah)"></path><path class="arrow-hit" d="${path}" data-tip="${esc(t)}"></path>`;
+      });
+    }
+  } else {
+    STAGES.slice().reverse().forEach((s, i) => {
+      const y = Y(i);
+      lab += `<g class="cell st-${s}"><rect x="8" y="${y}" width="48" height="${hh}" rx="5"></rect><text x="32" y="${y + hh / 2 + 4}" text-anchor="middle">${s}</text></g>`;
+      for (let c = 1; c <= T; c++) {
+        const oc = sim.occ[c] && sim.occ[c][s];
+        if (!oc) continue;
+        const r = oc.row;
+        const lb = r.kind === 'real' ? r.id : (r.kind === 'nop' ? 'nop' : '×');
+        const cls = `st-${s}` + (r.kind === 'flush' ? ' flush' : '') + (r.kind === 'nop' ? ' nopc' : '') +
+          (!oc.held && isEmptyStage(r, s) && r.kind !== 'nop' ? ' empty' : '') + (oc.held ? ' stall' : '') + fut(c);
+        const tp = oc.held ? `${r.id} 停在 ${s} 段（阻塞），第 ${c} 周期` : cellTip(sim, r, s);
+        h += cell(X(c), y, cls, lb, tp, c);
+      }
+    });
+  }
+  tg.lab.setAttribute('viewBox', `0 0 ${LW} ${H}`);
+  tg.lab.setAttribute('width', LW);
+  tg.lab.setAttribute('height', H);
+  tg.lab.innerHTML = lab;
+  tg.grid.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  tg.grid.setAttribute('width', W);
+  tg.grid.setAttribute('height', H);
+  tg.grid.innerHTML = h;
+  return { PAD, CW };
+}
+
+/* ================================================================
+ * 4. 数据通路
+ * ================================================================ */
+const DP = { x0: 70, step: 184, w: 140, y: 88, h: 104 };
+const COMP = { IF: '指令存储器 · PC+4', ID: '译码器 · 寄存器堆读', EX: 'ALU', MEM: '数据存储器', WB: '寄存器堆写' };
+function renderDatapath(svg, sim, c) {
+  const occ = (sim.occ && sim.occ[c]) || {};
+  const { x0, step, w, y, h } = DP;
+  const xs = STAGES.map((s, i) => x0 + i * step);
+  const lx = i => xs[i] + w + 8;           // 第 i 个流水段寄存器的 x
+  const R = r => dispReg(sim, r);
+  let s = '';
+
+  const fwdNow = sim.deps.filter(d => d.hazard && d.to.t.EX === c && (d.via === 'EX/MEM' || d.via === 'MEM/WB'));
+  const structNow = sim.rows.some(r => r.gaps.some(g => g.cycle === c && g.why === 'struct'));
+  const wb = occ.WB;
+  const wbWrite = wb && !wb.held && wb.row.kind === 'real' && wb.row.ins.dst && !isEmptyStage(wb.row, 'WB');
+
+  // 写回通路：WB → 寄存器堆（在 ID 段）
+  s += `<path class="wire${wbWrite ? ' on' : ''}" d="M${xs[4] + 70},${y} V${y - 46} H${xs[1] + 108} V${y - 3}" marker-end="url(#${wbWrite ? 'ah' : 'ah-dim'})"></path>`;
+  s += `<text class="wire-lab${wbWrite ? ' on' : ''}" x="${(xs[4] + xs[1]) / 2 + 89}" y="${y - 52}" text-anchor="middle">${wbWrite ? `${wb.row.id} 写回 ${R(wb.row.ins.dst)} → 寄存器堆` : '写回寄存器堆'}</text>`;
+  if (sim.opts.unified) {
+    s += `<path class="wire${structNow ? ' bad' : ''}" d="M${xs[0] + 70},${y} V${y - 20} H${xs[3] + 70} V${y}"></path>`;
+    s += `<text class="wire-lab${structNow ? ' bad' : ''}" x="${(xs[0] + xs[3]) / 2 + 70}" y="${y - 26}" text-anchor="middle">${structNow ? 'IF 与 MEM 争用同一存储器' : '指令和数据共用一个存储器'}</text>`;
+  }
+
+  // PC
+  const ifStall = c > 1 && (occ.IF ? occ.IF.held : sim.rows.some(r => r.t.IF > c));
+  s += `<rect class="pc${ifStall ? ' hold' : ''}" x="12" y="${y + 30}" width="42" height="44" rx="6"></rect><text class="mono" x="33" y="${y + 56}" text-anchor="middle">PC</text>`;
+  if (ifStall) s += `<text x="33" y="${y + 92}" text-anchor="middle" style="fill:var(--stall);font-size:11px;font-weight:700">保持</text>`;
+  s += `<path class="wire" d="M54,${y + h / 2} H${xs[0]}"></path>`;
+
+  STAGES.forEach((st, i) => {
+    const x = xs[i], oc = occ[st];
+    const key = st.toLowerCase();
+    const held = oc && oc.held;
+    s += `<rect class="box${oc ? ' act' : ''}${held ? ' held' : ''}" style="--c:var(--s-${key})" x="${x}" y="${y}" width="${w}" height="${h}" rx="10"></rect>`;
+    s += `<g class="cell st-${st}"><rect x="${x + 10}" y="${y + 10}" width="44" height="20" rx="4"></rect></g><text class="stg" x="${x + 32}" y="${y + 25}" text-anchor="middle">${st}</text>`;
+    s += `<text x="${x + 62}" y="${y + 25}">${STAGE_CN[st].split('/')[0]}</text>`;
+    s += `<text class="comp" x="${x + 10}" y="${y + 46}">${st === 'IF' && sim.opts.unified ? '存储器（共用）· PC+4' : st === 'MEM' && sim.opts.unified ? '存储器（共用）' : COMP[st]}</text>`;
+    let cls = 'chip', t1 = '', t2 = '';
+    if (oc) {
+      const r = oc.row;
+      t1 = r.kind === 'real' ? clip(`${r.id} ${r.ins.text}`, 17) : (r.kind === 'nop' ? 'nop' : '× 错误路径');
+      if (r.kind === 'flush') { cls += ' flush-chip'; t2 = oc.flushing ? '本周期末作废' : '预测路径'; }
+      else if (held) { cls += ' held-chip'; t2 = '阻塞 · 保持'; }
+      else if (r.kind === 'nop' || isEmptyStage(r, st)) { cls += ' empty-chip'; t2 = '空段'; }
+      else { cls += ` st-${st}`; t2 = SHORT[st](r.ins.kind); }
+    } else {
+      cls += ' empty-chip';
+      const past = sim.rows.some(r => r.t[st] != null && r.t[st] < c);
+      const future = sim.rows.some(r => r.t[st] != null && r.t[st] > c);
+      t1 = past && future ? '气泡' : '空闲';
+      t2 = past && future ? '无有效指令' : (past ? '流水线排空' : '流水线装入中');
+    }
+    s += `<g class="${cls}"><rect x="${x + 10}" y="${y + 56}" width="${w - 20}" height="38" rx="6"></rect><text class="t1" x="${x + w / 2}" y="${y + 72}" text-anchor="middle">${esc(t1)}</text><text class="t2" x="${x + w / 2}" y="${y + 88}" text-anchor="middle">${esc(t2)}</text></g>`;
+    if (i < 4) {
+      const L = lx(i);
+      s += `<path class="wire" d="M${x + w},${y + h / 2} H${L}"></path><path class="wire" d="M${L + 14},${y + h / 2} H${xs[i + 1]}"></path>`;
+      s += `<rect class="latch" x="${L}" y="${y - 4}" width="14" height="${h + 8}" rx="3"></rect>`;
+      s += `<text class="latch-lab" x="${L + 7}" y="${y - 9}" text-anchor="middle">${STAGES[i]}/${STAGES[i + 1]}</text>`;
+    }
+  });
+
+  // 转发通路
+  const fA = fwdNow.some(d => d.via === 'EX/MEM'), fB = fwdNow.some(d => d.via === 'MEM/WB');
+  s += `<path class="wire${fA ? ' on' : ''}" d="M${lx(2) + 10},${y + h + 4} V${y + h + 16} H${xs[2] + 44} V${y + h + 2}" marker-end="url(#${fA ? 'ah' : 'ah-dim'})"></path>`;
+  s += `<path class="wire${fB ? ' on' : ''}" d="M${lx(3) + 10},${y + h + 4} V${y + h + 28} H${xs[2] + 96} V${y + h + 2}" marker-end="url(#${fB ? 'ah' : 'ah-dim'})"></path>`;
+  const fLab = fwdNow.length ? '转发：' + fwdNow.map(d => `${d.from.id} 的 ${R(d.reg)}（${d.via}）`).join('，') + ' → ALU' : '转发通路（EX/MEM、MEM/WB → ALU）';
+  // 时钟
+  const cy = y + h + 46;
+  s += `<text class="wire-lab${fwdNow.length ? ' on' : ''}" x="${xs[2] + 44}" y="${cy + 22}">${esc(fLab)}</text>`;
+  s += `<path class="clkline" d="M33,${cy} H${lx(3) + 4}"></path><path class="clkline" d="M33,${cy} V${y + 74}"></path>`;
+  for (let i = 0; i < 4; i++) s += `<path class="clkline" d="M${lx(i) + 4},${cy} V${y + h + 4}"></path>`;
+  s += `<text class="latch-lab" x="${lx(3) + 12}" y="${cy + 4}">CLK</text>`;
+
+  svg.setAttribute('viewBox', `0 0 960 ${cy + 32}`);
+  svg.innerHTML = s;
+}
+
+function cycleEvents(sim, c) {
+  const ev = [];
+  const R = r => dispReg(sim, r);
+  const occ = sim.occ[c] || {};
+  sim.rows.forEach(r => r.gaps.forEach(g => {
+    if (g.cycle !== c) return;
+    if (g.why === 'struct') ev.push(['t-stall', '结构冒险', gapText(sim, r, g)]);
+    else if (g.why === 'ctrl') ev.push(['t-stall', '控制冒险', gapText(sim, r, g)]);
+    else ev.push(['t-stall', '阻塞', gapText(sim, r, g)]);
+  }));
+  sim.deps.forEach(d => {
+    if (d.hazard && d.to.t.EX === c && (d.via === 'EX/MEM' || d.via === 'MEM/WB')) {
+      ev.push(['t-fwd', '转发', `${d.from.id} 的结果 ${R(d.reg)} 从 ${d.via} 段寄存器直接送到 ${d.to.id} 的 ALU 输入端`]);
+    }
+    if (d.hazard && d.via === 'RF' && sim.split && d.to.t.ID === c && d.from.t.WB === c) {
+      ev.push(['t-fwd', '前写后读', `${d.from.id} 在前半周期写 ${R(d.reg)}，${d.to.id} 在后半周期读出新值`]);
+    }
+  });
+  sim.rows.forEach(r => {
+    if (!r.ctrl || r.ctrl.resolve !== c) return;
+    const where = r.ins.kind === 'jump' ? 'EX' : 'MEM';
+    let t = `${r.id}（${r.ins.opRaw}）在 ${where} 段末确定转移结果`;
+    if (r.ctrl.mode === 'predict') t += r.ctrl.taken ? `：预测“不跳转”失败，冲刷 ${r.ctrl.flushed} 条已取入的指令，下一周期从目标地址取指` : '：预测“不跳转”正确，流水线不受影响';
+    else if (r.ctrl.mode === 'nop') t += '，之前插入的 nop 正好填满等待时间';
+    else t += '，下一周期恢复取指';
+    ev.push([r.ctrl.mode === 'predict' && r.ctrl.taken ? 't-stall' : 't-ink', r.ctrl.mode === 'predict' && r.ctrl.taken ? '冲刷' : '转移', t]);
+  });
+  const fi = occ.IF;
+  if (fi && !fi.held) {
+    if (fi.row.kind === 'real') ev.push(['', '取指', `${fi.row.id}：${fi.row.ins.text}`]);
+    else if (fi.row.kind === 'flush') ev.push(['', '取指', '按“不跳转”预测，顺序取入下一条指令']);
+  }
+  const wb = occ.WB;
+  if (wb && !wb.held && wb.row.kind === 'real') {
+    const r = wb.row;
+    ev.push(['t-ok', '完成', r.ins.dst && !isEmptyStage(r, 'WB') ? `${r.id} 把结果写回 ${R(r.ins.dst)}，流出流水线` : `${r.id} 流出流水线（WB 为空段）`]);
+  }
+  if (!ev.length) ev.push(['', '推进', '各段正常推进']);
+  return ev;
+}
+
+/* ================================================================
+ * 5. 预设
+ * ================================================================ */
+const D = { fwd: false, split: false, mode: 'stall', branch: 'stall', taken: true, unified: false };
+const P = (o) => Object.assign({}, D, o);
+const PRESETS = [
+  { id: 'demo', name: '综合示例：转发、load-use 与分支', opts: P({ fwd: true }),
+    note: '开启转发后，大部分 RAW 冒险不再阻塞，只剩 load-use 需要停 1 个周期；beq 仍要等到 MEM 段末。',
+    code: 'lw   r2, 0(r1)      # M[(r1)+0]→r2\nadd  r4, r2, r3     # load-use：要用 r2\nsub  r5, r4, r6     # 用 r4：EX/MEM 转发\nsw   r5, 4(r1)      # 用 r5：EX/MEM 转发\nbeq  r5, r0, done   # 分支：MEM 段末才确定\naddi r1, r1, 8' },
+  { id: 'raw', name: '表 5.5：add → sub 写后读（无转发）', opts: P({}),
+    note: 'sub 在第 3 周期 ID 读 R1，而 add 第 5 周期才写回。不支持同周期读写时，sub 的 ID 要推迟到第 6 周期，阻塞 3 个周期（表 5.6）。',
+    code: 'add R1, R2, R3   # (R2)+(R3)→R1\nsub R4, R1, R5   # (R1)-(R5)→R4' },
+  { id: 'raw-split', name: '前半周期写、后半周期读', opts: P({ split: true }),
+    note: '寄存器堆前半周期写、后半周期读，add 的 WB 与 sub 的 ID 可以重叠在第 5 周期，只需阻塞 2 个周期。',
+    code: 'add R1, R2, R3   # (R2)+(R3)→R1\nsub R4, R1, R5   # (R1)-(R5)→R4' },
+  { id: 'raw-nop', name: '表 5.6：编译器插入 nop', opts: P({ mode: 'nop' }),
+    note: '软件方法：在 sub 前插入 3 条 nop，效果与硬件阻塞 3 个周期相同。',
+    code: 'add R1, R2, R3   # (R2)+(R3)→R1\nsub R4, R1, R5   # (R1)-(R5)→R4' },
+  { id: 'fwd', name: '表 5.7：转发解决写后读', opts: P({ fwd: true }),
+    note: 'add 在 EX 段末算出 R1，存在 EX/MEM 中；sub 进入 EX 时直接从这里取用，不再阻塞。',
+    code: 'add R1, R2, R3   # (R2)+(R3)→R1\nsub R4, R1, R5   # (R1)-(R5)→R4' },
+  { id: 'loaduse', name: '表 5.8：load-use 冒险', opts: P({ fwd: true }),
+    note: 'load 到 MEM 段末才拿到数据，而 add 的 EX 与它同时开始，转发也来不及，必须阻塞 1 个周期，再从 MEM/WB 转发。',
+    code: 'load r2, 12(r1)   # M[(r1)+12]→r2\nadd  r4, r3, r2   # (r3)+(r2)→r4' },
+  { id: 'struct', name: '表 5.4：指令与数据共用存储器', opts: P({ unified: true }),
+    note: 'LOAD 第 4 周期在 MEM 段访存，第 i+3 条指令同一周期要取指，只能推迟一个周期。把指令 Cache 和数据 Cache 分开就没有这个冲突。',
+    code: 'lw  r1, 0(r2)      # LOAD：第 4 周期访存\nadd r3, r4, r5     # 指令 i+1\nsub r6, r7, r8     # 指令 i+2\nand r9, r10, r11   # 指令 i+3：与 LOAD 的 MEM 冲突\nor  r12, r13, r14  # 指令 i+4' },
+  { id: 'ctrl', name: '表 5.9：bne 循环的控制冒险', opts: P({ fwd: true }),
+    note: 'bne 在 EX 段比较，MEM 段末（第 5 周期）才确定是否改 PC，跳回 loop 的 add 要到第 6 周期才能取指，延迟 C = 3。',
+    code: 'loop: add R1, R1, 1   # (R1)+1→R1\nbne R1, R2, loop      # if (R1)!=(R2) goto loop\nadd R1, R1, 1         # 跳回 loop 后的下一轮' },
+  { id: 'predict', name: '分支预测失败：冲刷错误路径', opts: P({ fwd: true, branch: 'predict', taken: true }),
+    note: '静态预测“不跳转”：bne 之后顺序取入 3 条指令；第 5 周期发现实际要跳转，这 3 条被冲刷，损失与阻塞相同。把“分支实际结果”改成不跳转，就没有损失。',
+    code: 'loop: add R1, R1, 1   # (R1)+1→R1\nbne R1, R2, loop      # if (R1)!=(R2) goto loop\nadd R1, R1, 1         # 跳回 loop 后的下一轮' },
+  { id: 'z2012a', name: '2012 统考：x = a + b', opts: P({}),
+    note: '无转发，同一寄存器读写不能在同一周期。I3 等 I2 写回 R2 后第 7 周期才 ID，I4 的 IF 也被推到第 7 周期，共 14 个周期。',
+    code: 'LOAD  R1, [a]    # (a)→R1\nLOAD  R2, [b]    # (b)→R2\nADD   R1, R2     # (R1)+(R2)→R2\nSTORE R2, [x]    # (R2)→x' },
+  { id: 'z2012b', name: '2012 统考：x = x*2 + a', opts: P({}),
+    note: '乘 2 用左移实现。5 条指令依次相关，最少 17 个周期。',
+    code: 'LOAD  R1, [x]    # (x)→R1\nLOAD  R2, [a]    # (a)→R2\nSHL   R1         # 2*(R1)→R1\nADD   R1, R2     # (R1)+(R2)→R2\nSTORE R2, [x]    # (R2)→x' },
+  { id: 'z2014', name: '2014 统考：sum += A[i] 循环', opts: P({}),
+    note: '无转发，分支阻塞 3 个周期。第 2、3、4、6 条因数据相关阻塞；bne 之后的下一轮 sll 再读 R2 时早已写回。',
+    code: 'loop: sll R4, R2, 2   # (R2)<<2→R4\nadd  R4, R4, R3       # (R4)+(R3)→R4\nload R5, 0(R4)        # ((R4)+0)→R5\nadd  R1, R1, R5       # (R1)+(R5)→R1\nadd  R2, R2, 1        # (R2)+1→R2\nbne  R2, R6, loop     # if (R2)!=(R6) goto loop\nsll  R4, R2, 2        # 下一轮循环的第 1 条' },
+  { id: 'z2016', name: '2016 统考：找数据冒险指令对', opts: P({}),
+    note: '无转发。只有 I2→I3（R5）是写后读；I3 与 I4 之间是读后写，I2 与 I4 之间是写后写，按序流水线中都不会出错。',
+    code: 'add R1, R2, R3   # (R2)+(R3)→R1\nadd R5, R2, R4   # (R2)+(R4)→R5\nadd R4, R5, R3   # (R5)+(R3)→R4\nadd R5, R2, R6   # (R2)+(R6)→R5' },
+  { id: 'z2019', name: '2019 统考：找不存在数据冒险的指令对', opts: P({}),
+    note: '无转发。I1→I3、I2→I3、I3→I4 都是写后读；I2 与 I4 之间没有数据冒险。',
+    code: 'add   s2, s1, s0   // R[s2]←R[s1]+R[s0]\nload  s3, 0(t2)    // R[s3]←M[R[t2]+0]\nadd   s2, s2, s3   // R[s2]←R[s2]+R[s3]\nstore s2, 0(t2)    // M[R[t2]+0]←R[s2]' },
+  { id: 'z2023', name: '2023 统考：转发 + 硬件阻塞', opts: P({ fwd: true }),
+    note: '转发解决 I1→I2；I2 是 load，I3 紧接着用 s3，load-use 阻塞 1 个周期；beq 用硬件阻塞，I4 第 8 周期才能取指。被阻塞的是 I3 和 I4。',
+    code: 'add  s2, s1, s0    // R[s2]←R[s1]+R[s0]\nload s3, 0(s2)     // R[s3]←M[R[s2]+0]\nbeq  t2, s3, L1    // if R[t2]=R[s3] jump to L1\naddi t2, t2, 20    // R[t2]←R[t2]+20' },
+  { id: 'ex13', name: '习题：转发后还要几条 nop', opts: P({ fwd: true, mode: 'nop' }),
+    note: '转发解决 I1→I3 的 r1，但 I2→I3 的 r3 是 load-use，必须在 I3 前插入 1 条 nop。',
+    code: 'add  r1, r0, 1    # (r0)+1→r1\nload r3, 12(r2)   # M[(r2)+12]→r3\nadd  r5, r3, r1   # (r3)+(r1)→r5' }
+];
+const presetById = id => PRESETS.find(p => p.id === id);
+
+/* ================================================================
+ * 6. 冒险模拟器
+ * ================================================================ */
+const simUI = (function () {
+  const el = {
+    preset: $('#sim-preset'), note: $('#sim-note'), code: $('#sim-code'), err: $('#sim-err'), parsed: $('#sim-parsed'),
+    fwd: $('#opt-fwd'), split: $('#opt-split'), splitLab: $('#opt-split-lab'), splitHint: $('#opt-split-hint'),
+    mode: $('#opt-mode'), branch: $('#opt-branch'), taken: $('#opt-taken'), takenLab: $('#opt-taken-lab'), branchHint: $('#opt-branch-hint'),
+    unified: $('#opt-unified'), stats: $('#sim-stats'), view: $('#sim-view'), chart: $('#sim-chart'), lab: $('#sim-lab'),
+    wrap: $('#sim-chart-wrap'), gridWrap: $('#sim-grid-wrap'),
+    dp: $('#sim-dp'), dpCap: $('#dp-cap'), events: $('#sim-events'), log: $('#sim-log'), cyc: $('#pl-cyc'),
+    play: $('#pl-play'), speed: $('#pl-speed')
+  };
+  let sim = null, cur = 1, view = 'inst', timer = null, geo = { PAD: 6, CW: 46 };
+  let opts = Object.assign({}, D), splitUser = false;
+
+  el.preset.innerHTML = PRESETS.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('') + '<option value="custom">（自定义）</option>';
+
+  function syncControls() {
+    el.fwd.checked = opts.fwd;
+    el.split.checked = opts.fwd ? true : opts.split;
+    el.split.disabled = opts.fwd;
+    el.splitLab.classList.toggle('dis', opts.fwd);
+    el.splitHint.textContent = opts.fwd ? '开启转发时默认支持（WB 与 ID 可在同一周期）' : 'WB 与 ID 可在同一周期，少等 1 个周期';
+    $$('button', el.mode).forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === opts.mode)));
+    el.branch.value = opts.branch;
+    el.branch.disabled = opts.mode === 'nop';
+    el.branchHint.hidden = opts.mode !== 'nop';
+    el.taken.value = opts.taken ? '1' : '0';
+    el.takenLab.hidden = !(opts.branch === 'predict' && opts.mode !== 'nop');
+    el.unified.checked = opts.unified;
+  }
+  function loadPreset(id, scroll) {
+    const p = presetById(id);
+    if (!p) return;
+    stop();
+    el.preset.value = id;
+    el.code.value = p.code;
+    opts = Object.assign({}, p.opts);
+    splitUser = opts.split;
+    el.note.textContent = p.note;
+    el.note.hidden = false;
+    syncControls();
+    run(false);
+    if (scroll) $('#sim').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+  }
+  function run(keepCur) {
+    const parsed = parseProgram(el.code.value);
+    const prog = parsed.prog.slice(0, 30);
+    const errs = parsed.errors.slice();
+    if (parsed.prog.length > 30) errs.push('最多模拟 30 条指令，后面的已忽略');
+    el.err.hidden = !errs.length;
+    el.err.textContent = errs.join('；');
+    sim = simulate(prog, opts);
+    sim.names = parsed.names;
+    cur = keepCur ? clamp(cur, 1, Math.max(1, sim.total)) : Math.max(1, sim.total);
+    renderStatic();
+    renderDynamic(false);
+    el.gridWrap.scrollLeft = 0;
+  }
+  function renderStatic() {
+    const R = r => dispReg(sim, r);
+    el.parsed.innerHTML = sim.rows.filter(r => r.kind === 'real').map(r => {
+      const rw = [r.ins.dst ? `写 ${R(r.ins.dst)}` : '', r.ins.srcs.length ? `读 ${r.ins.srcs.map(R).join(', ')}` : ''].filter(Boolean).join(' · ') || '无寄存器读写';
+      return `<li><span class="pid">${r.id}</span><code title="${esc(r.ins.text)}">${esc(r.ins.text)}</code><span class="rw">${esc(rw)}</span></li>`;
+    }).join('');
+    const T = sim.total, n = sim.n, ideal = n ? n + 4 : 0;
+    const fwdN = sim.deps.filter(d => d.hazard && (d.via === 'EX/MEM' || d.via === 'MEM/WB')).length;
+    const tiles = [['总时钟周期', T], ['指令条数 n', n], ['理想周期 n+4', ideal], ['冒险损失', n ? T - ideal : 0], ['转发次数', fwdN], ['平均 CPI', n ? ((T - 4) / n).toFixed(2) : '—']];
+    el.stats.innerHTML = tiles.map(t => `<div><span>${t[0]}</span><b>${t[1]}</b></div>`).join('');
+    el.stats.lastElementChild.title = '扣除流水线装入的 4 个周期后，平均每条指令占用的周期数';
+    renderLog();
+  }
+  function renderLog() {
+    const R = r => dispReg(sim, r);
+    const items = [];
+    sim.deps.forEach(d => {
+      const head = `<b>${d.to.id}</b> 读 <code>${esc(R(d.reg))}</code> ← <b>${d.from.id}</b> 写`;
+      if (!d.hazard) { items.push(['t-ok', '无冒险', `${head}：两条指令相隔较远，读寄存器时已写回`]); return; }
+      const fwd = d.via === 'EX/MEM' || d.via === 'MEM/WB';
+      let how;
+      if (sim.opts.mode === 'nop') {
+        if (fwd) how = `经 ${d.via} 转发` + (d.stall ? `，还需要隔开 ${d.stall} 个周期（由 nop 补足）` : '，不用等');
+        else how = d.stall ? `需要隔开 ${d.stall} 个周期（由 nop 补足）` : '插入的 nop 已拉开距离，读寄存器时已写回';
+      } else if (fwd) {
+        how = `经 ${d.via} 转发到 ALU` + (d.stall ? `，仍需阻塞 ${d.stall} 个周期（load-use）` : '，无需阻塞');
+      } else {
+        how = d.stall ? `阻塞 ${d.stall} 个周期，等 ${d.from.id} 写回后再读` : '前面的阻塞已拉开距离，无需再等';
+      }
+      items.push([d.stall ? 't-stall' : 't-fwd', d.stall ? '数据冒险' : '已化解', `${head}（RAW）：${how}`]);
+    });
+    sim.rows.forEach(r => { if (r.kind === 'real' && r.dataNops) items.push(['t-ink', '插入 nop', `在 ${r.id} 前插入 ${r.dataNops} 条 nop`]); });
+    sim.rows.forEach((r, idx) => {
+      if (!r.ctrl) return;
+      const where = r.ins.kind === 'jump' ? 'EX' : 'MEM';
+      const nx = sim.rows.slice(idx + 1).find(x => x.kind === 'real');
+      if (r.ctrl.mode === 'stall') {
+        const k = nx ? nx.gaps.filter(g => g.why === 'ctrl').length : 0;
+        items.push(['t-stall', '控制冒险', `${r.id}（${esc(r.ins.opRaw)}）的转移结果第 ${r.ctrl.resolve} 周期（${where} 段）末才确定，${nx ? nx.id : '下一条'} 第 ${r.ctrl.resolve + 1} 周期才能取指，取指被推迟 ${k} 个周期`]);
+      } else if (r.ctrl.mode === 'nop') {
+        items.push(['t-ink', '控制冒险', `${r.id}（${esc(r.ins.opRaw)}）之后插入 ${r.ctrl.nops} 条 nop，等转移结果在 ${where} 段末确定`]);
+      } else if (r.ctrl.taken) {
+        items.push(['t-stall', '预测失败', `预测“不跳转”，但 ${r.id}（${esc(r.ins.opRaw)}）实际${r.ins.kind === 'jump' ? '是无条件转移' : '跳转'}：已取入的 ${r.ctrl.flushed} 条顺序指令被冲刷，损失 ${r.ctrl.flushed} 个周期`]);
+      } else {
+        items.push(['t-ok', '预测成功', `${r.id}（${esc(r.ins.opRaw)}）实际不跳转，与预测一致，没有损失`]);
+      }
+    });
+    sim.rows.forEach(r => {
+      const g = r.gaps.filter(x => x.why === 'struct');
+      if (g.length) items.push(['t-stall', '结构冒险', `${r.id} 取指与 ${g[0].ref.id} 的 MEM 访存争用存储器，推迟 ${g.length} 个周期`]);
+    });
+    sim.others.forEach(x => items.push(['', x.type === 'WAR' ? '读后写' : '写后写',
+      `${x.to.id} 写 <code>${esc(R(x.reg))}</code>，${x.type === 'WAR' ? `${x.from.id} 先读` : `${x.from.id} 也写`}：按序流水线中不会引起冒险`]));
+    if (!items.length) items.push(['t-ok', '无相关', '指令之间没有数据相关，也没有转移指令']);
+    el.log.innerHTML = items.map(i => `<li><span class="tag ${i[0]}">${i[1]}</span><span>${i[2]}</span></li>`).join('');
+  }
+  function renderDynamic(follow) {
+    const narrow = window.innerWidth < 640;
+    geo = renderPipeChart({ lab: el.lab, grid: el.chart }, sim, cur, view, narrow ? { compact: true, lw: 92, cw: 42 } : {});
+    renderDatapath(el.dp, sim, cur);
+    el.dpCap.textContent = `第 ${cur} 周期`;
+    el.events.innerHTML = cycleEvents(sim, cur).map(e => `<li><span class="tag ${e[0]}">${e[1]}</span><span>${esc(e[2])}</span></li>`).join('');
+    el.cyc.textContent = `第 ${cur} / ${sim.total} 周期`;
+    if (follow === false) return;
+    const x = geo.PAD + (cur - 1) * geo.CW, wr = el.gridWrap;
+    if (x < wr.scrollLeft || x + geo.CW > wr.scrollLeft + wr.clientWidth) wr.scrollLeft = Math.max(0, x - wr.clientWidth / 2);
+  }
+  function setCur(c) { if (!sim) return; cur = clamp(c, 1, Math.max(1, sim.total)); renderDynamic(); }
+  function stop() { if (timer) { clearInterval(timer); timer = null; } el.play.textContent = '逐周期播放'; }
+  function play() {
+    if (timer) { stop(); return; }
+    if (cur >= sim.total) setCur(1);
+    el.play.textContent = '暂停';
+    timer = setInterval(() => { if (cur >= sim.total) stop(); else setCur(cur + 1); }, +el.speed.value);
+  }
+
+  let deb = 0;
+  el.code.addEventListener('input', () => {
+    el.preset.value = 'custom';
+    el.note.hidden = true;
+    clearTimeout(deb);
+    deb = setTimeout(() => { stop(); run(false); }, 250);
+  });
+  el.preset.addEventListener('change', () => { if (el.preset.value !== 'custom') loadPreset(el.preset.value); });
+  const onOpt = f => () => { f(); syncControls(); stop(); run(false); };
+  el.fwd.addEventListener('change', onOpt(() => { opts.fwd = el.fwd.checked; opts.split = opts.fwd ? true : splitUser; }));
+  el.split.addEventListener('change', onOpt(() => { splitUser = el.split.checked; opts.split = splitUser; }));
+  el.branch.addEventListener('change', onOpt(() => { opts.branch = el.branch.value; }));
+  el.taken.addEventListener('change', onOpt(() => { opts.taken = el.taken.value === '1'; }));
+  el.unified.addEventListener('change', onOpt(() => { opts.unified = el.unified.checked; }));
+  el.mode.addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    opts.mode = b.dataset.v; syncControls(); stop(); run(false);
+  });
+  el.view.addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    view = b.dataset.v;
+    $$('button', el.view).forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    renderDynamic(false);
+  });
+  el.chart.addEventListener('click', e => {
+    const t = e.target.closest('[data-cycle]');
+    if (t) { stop(); setCur(+t.getAttribute('data-cycle')); }
+  });
+  el.wrap.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight') { e.preventDefault(); stop(); setCur(cur + 1); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); stop(); setCur(cur - 1); }
+  });
+  $('#pl-first').addEventListener('click', () => { stop(); setCur(1); });
+  $('#pl-prev').addEventListener('click', () => { stop(); setCur(cur - 1); });
+  $('#pl-next').addEventListener('click', () => { stop(); setCur(cur + 1); });
+  $('#pl-last').addEventListener('click', () => { stop(); setCur(sim.total); });
+  el.play.addEventListener('click', play);
+  let rz = 0, lastNarrow = window.innerWidth < 640;
+  window.addEventListener('resize', () => {
+    clearTimeout(rz);
+    rz = setTimeout(() => { const nw = window.innerWidth < 640; if (nw !== lastNarrow) { lastNarrow = nw; renderDynamic(false); } }, 150);
+  });
+  el.speed.addEventListener('change', () => { if (timer) { stop(); play(); } });
+
+  return { loadPreset };
+})();
+simUI.loadPreset('demo');
+$$('[data-preset]').forEach(b => b.addEventListener('click', () => simUI.loadPreset(b.dataset.preset, true)));
+
+/* ================================================================
+ * 7. 首屏动画与逻辑结构演示
+ * ================================================================ */
+const IDEAL = parseProgram('lw r1, 0(r4)\nadd r2, r5, r6\nsub r3, r7, r8\nsw r9, 4(r4)\nor r10, r11, r12');
+const idealSim = simulate(IDEAL.prog, {});
+idealSim.names = IDEAL.names;
+
+(function hero() {
+  const svg = $('#hero-chart');
+  const T = idealSim.total;
+  let c = T;
+  const draw = () => renderPipeChart({ lab: $('#hero-lab'), grid: svg }, idealSim, c, 'inst', { cw: 40, rh: 30, lw: 84, compact: true, noArrows: true, static: true });
+  draw();
+  if (reduceMotion) return;
+  let hold = 0;
+  setTimeout(() => {
+    c = 1; draw();
+    setInterval(() => {
+      if (document.hidden) return;
+      if (c >= T) { if (++hold < 3) return; hold = 0; c = 1; } else c++;
+      draw();
+    }, 900);
+  }, 1500);
+})();
+
+(function mini() {
+  const svg = $('#mini-dp'), cap = $('#mini-cap'), btn = $('#mini-play');
+  const T = idealSim.total;
+  let c = 5, timer = null;
+  function draw() {
+    renderDatapath(svg, idealSim, c);
+    const k = STAGES.filter(s => idealSim.occ[c] && idealSim.occ[c][s]).length;
+    cap.textContent = `第 ${c} 周期 · 流水线中有 ${k} 条指令${k === 5 ? '（满载）' : ''}`;
+  }
+  function stop() { if (timer) { clearInterval(timer); timer = null; } btn.textContent = '自动播放'; }
+  $('#mini-prev').addEventListener('click', () => { stop(); c = Math.max(1, c - 1); draw(); });
+  $('#mini-next').addEventListener('click', () => { stop(); c = Math.min(T, c + 1); draw(); });
+  btn.addEventListener('click', () => {
+    if (timer) { stop(); return; }
+    btn.textContent = '暂停';
+    if (c >= T) c = 0;
+    timer = setInterval(() => { if (c >= T) { stop(); return; } c++; draw(); }, 900);
+  });
+  draw();
+})();
+
+/* ================================================================
+ * 8. 通用小型甘特图
+ * ================================================================ */
+function gantt(svg, spec) {
+  const cw = spec.cw || 26, rh = spec.rh || 22, lw = spec.lw || 40, top = spec.axis ? 22 : 4;
+  const rows = spec.rows, cols = spec.cols;
+  const W = lw + cols * cw + (spec.padR || 12), H = top + rows.length * rh + 4;
+  let h = '';
+  for (let c = 0; c <= cols; c++) h += `<line class="grid" x1="${lw + c * cw}" y1="${top}" x2="${lw + c * cw}" y2="${top + rows.length * rh}"></line>`;
+  if (spec.axis === 'num') {
+    const every = spec.every || 1;
+    for (let c = 1; c <= cols; c++) if (c % every === 0 || c === 1) h += `<text class="ax" x="${lw + (c - 0.5) * cw}" y="${top - 7}" text-anchor="middle">${c}</text>`;
+  } else if (spec.axis === 'dt') {
+    for (let c = 0; c <= cols; c++) if (c % (spec.every || 1) === 0) h += `<text class="ax" x="${lw + c * cw}" y="${top - 7}" text-anchor="middle">${c}</text>`;
+    h += `<text class="ax-lab" x="${lw - 6}" y="${top - 7}" text-anchor="end">Δt</text>`;
+  }
+  rows.forEach((r, i) => { h += `<text class="lab-txt" x="${lw - 6}" y="${top + i * rh + rh / 2 + 4}" text-anchor="end">${esc(r)}</text>`; });
+  spec.cells.forEach(c => {
+    const x = lw + c.x0 * cw + 1.5, w = (c.x1 - c.x0) * cw - 3, y = top + c.r * rh + 2, hh = rh - 4;
+    h += `<g class="cell ${c.cls}"${c.tip ? ` data-tip="${esc(c.tip)}"` : ''}><rect x="${x}" y="${y}" width="${w}" height="${hh}" rx="3"></rect>`;
+    if (c.div) for (let k = 1; k < c.div; k++) h += `<line x1="${x + (w * k) / c.div}" y1="${y + 3}" x2="${x + (w * k) / c.div}" y2="${y + hh - 3}" style="stroke:var(--surface);stroke-width:1.5"></line>`;
+    if (c.text && w > 14) h += `<text class="${spec.tiny ? 'tiny' : ''}" x="${x + w / 2}" y="${y + hh / 2 + 3.5}" text-anchor="middle">${esc(c.text)}</text>`;
+    h += '</g>';
+  });
+  if (spec.end != null) {
+    const x = lw + spec.end * cw;
+    h += `<line class="endline" x1="${x}" y1="${top - 2}" x2="${x}" y2="${top + rows.length * rh}"></line>`;
+  }
+  if (spec.extra) h += spec.extra;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.setAttribute('width', W);
+  svg.setAttribute('height', H);
+  svg.innerHTML = h;
+}
+
+/* ---------- 5.6.1 逐条 vs 流水 ---------- */
+(function serial() {
+  const inp = $('#serial-n'), out = $('#serial-n-out');
+  function draw() {
+    const n = +inp.value;
+    out.textContent = n;
+    const cols = 5 * n, rows = Array.from({ length: n }, (_, i) => 'I' + (i + 1));
+    const A = [], B = [];
+    for (let i = 0; i < n; i++) STAGES.forEach((s, k) => {
+      A.push({ r: i, x0: 5 * i + k, x1: 5 * i + k + 1, cls: 'st-' + s, text: s, tip: `I${i + 1} 的 ${s}：第 ${5 * i + k + 1} 个 Δt` });
+      B.push({ r: i, x0: i + k, x1: i + k + 1, cls: 'st-' + s, text: s, tip: `I${i + 1} 的 ${s}：第 ${i + k + 1} 个 Δt` });
+    });
+    const cw = 26, rh = 20;
+    gantt($('#serial-a'), { cols, cw, rh, lw: 30, rows, cells: A, tiny: true, end: 5 * n });
+    gantt($('#serial-b'), { cols, cw, rh, lw: 30, rows, cells: B, tiny: true, end: n + 4 });
+    $('#serial-a-t').textContent = `${5 * n}Δt`;
+    $('#serial-b-t').textContent = `${n + 4}Δt`;
+    $('#serial-insight').textContent = `${n} 条指令：逐条执行要 5 × ${n} = ${5 * n}Δt，流水执行要 5 + (${n} − 1) = ${n + 4}Δt，加速比 ${(5 * n / (n + 4)).toFixed(2)}。n 越大越接近段数 5，但单条指令仍需 5Δt，流水线缩短的是总时间而不是单条指令的时间。`;
+  }
+  inp.addEventListener('input', draw);
+  draw();
+})();
+
+/* ================================================================
+ * 9. 时钟周期计算器
+ * ================================================================ */
+const CLOCK_PRESETS = [
+  { id: 'book', label: '教材例题', unit: 'ps', latch: 0, N: 100, stages: [['IF', 200], ['ID', 100], ['EX', 150], ['MEM', 200], ['WB', 100]] },
+  { id: 'y2009', label: '2009 真题', unit: 'ns', latch: 0, N: 100, stages: [['段1', 90], ['段2', 80], ['段3', 70], ['段4', 60]] },
+  { id: 'y2018', label: '2018 真题', unit: 'ps', latch: 20, N: 100, stages: [['A', 80], ['B', 50], ['C', 50], ['D', 70], ['E', 50]] },
+  { id: 'ex05', label: '3 段不等长', unit: 'ns', latch: 0, N: 100, stages: [['取指', 2], ['分析', 2], ['执行', 1]] }
+];
+const clockUI = (function () {
+  const rowsEl = $('#clock-rows'), outEl = $('#clock-out'), ins = $('#clock-insight');
+  const unitEl = $('#clock-unit'), latchEl = $('#clock-latch'), nEl = $('#clock-n'), presetEl = $('#clock-presets');
+  let stages = [];
+  presetEl.innerHTML = CLOCK_PRESETS.map(p => `<button type="button" data-v="${p.id}" aria-pressed="false">${p.label}</button>`).join('');
+  const fmt = v => (Math.round(v * 100) / 100).toLocaleString('zh-CN');
+  function load(id) {
+    const p = CLOCK_PRESETS.find(x => x.id === id);
+    if (!p) return;
+    stages = p.stages.map(s => ({ name: s[0], d: s[1] }));
+    unitEl.value = p.unit; latchEl.value = p.latch; nEl.value = p.N;
+    $$('button', presetEl).forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === id)));
+    build();
+  }
+  function build() {
+    rowsEl.innerHTML = stages.map((s, i) => `<div class="crow" data-i="${i}"><span class="cname">${esc(s.name)}</span><input type="number" min="0" step="1" value="${s.d}" id="clock-d${i}" aria-label="${esc(s.name)} 段耗时"><div class="cbar"><i class="d"></i><i class="w"></i><i class="l"></i></div></div>`).join('');
+    $$('input', rowsEl).forEach((inp, i) => inp.addEventListener('input', () => { stages[i].d = Math.max(0, +inp.value || 0); clearPreset(); calc(); }));
+    calc();
+  }
+  function clearPreset() { $$('button', presetEl).forEach(b => b.setAttribute('aria-pressed', 'false')); }
+  function calc() {
+    const u = unitEl.value, latch = Math.max(0, +latchEl.value || 0), N = Math.max(1, Math.round(+nEl.value || 1)), k = stages.length;
+    const ds = stages.map(s => s.d), mx = Math.max.apply(null, ds), sum = ds.reduce((a, b) => a + b, 0);
+    const T = mx + latch;
+    $$('.crow', rowsEl).forEach((row, i) => {
+      const s = stages[i], name = s.name;
+      const color = STAGES.includes(name) ? `var(--s-${name.toLowerCase()})` : 'var(--accent)';
+      row.style.setProperty('--c', color);
+      row.classList.toggle('max', s.d === mx && stages.filter(x => x.d === mx).length < k);
+      const [d, w, l] = row.querySelectorAll('i');
+      d.style.width = (T ? (s.d / T) * 100 : 0) + '%';
+      w.style.width = (T ? ((mx - s.d) / T) * 100 : 0) + '%';
+      l.style.width = (T ? (latch / T) * 100 : 0) + '%';
+      row.title = `${name}：${s.d} ${u}，每个周期空等 ${mx - s.d} ${u}`;
+    });
+    const pipeTotal = (k + N - 1) * T, singleTotal = N * sum;
+    const unitSec = u === 'ps' ? 1e-12 : 1e-9;
+    const tp = N / (pipeTotal * unitSec);
+    const tpStr = tp >= 1e9 ? `${(tp / 1e9).toFixed(2)}×10⁹` : `${(tp / 1e6).toFixed(1)}×10⁶`;
+    const cells = [
+      ['流水线时钟周期', `${fmt(T)} ${u}`, latch ? `最长段 ${fmt(mx)} + 段寄存器 ${fmt(latch)}` : `= 最长段 ${fmt(mx)}`],
+      ['单周期 CPU 时钟周期', `${fmt(sum)} ${u}`, '各段时间之和'],
+      ['单条指令的延迟', `${fmt(k * T)} ${u}`, `${k} 段 × ${fmt(T)}；单周期为 ${fmt(sum)}`],
+      [`${N} 条指令：流水线`, `${fmt(pipeTotal)} ${u}`, `(${k} + ${N} − 1) × ${fmt(T)}`],
+      [`${N} 条指令：单周期`, `${fmt(singleTotal)} ${u}`, `${N} × ${fmt(sum)}`],
+      ['加速比 / 吞吐率', `${(singleTotal / pipeTotal).toFixed(2)}`, `TP ≈ ${tpStr} 条/秒`]
+    ];
+    outEl.innerHTML = cells.map(c => `<div><span>${c[0]}</span><b>${c[1]}</b><small>${c[2]}</small></div>`).join('');
+    let t = k * T > sum
+      ? `流水线没有缩短单条指令的执行时间（${fmt(k * T)} ${u} > ${fmt(sum)} ${u}），各段都要按最慢的一段计时；它提高的是吞吐率，N 越大优势越明显。`
+      : `各段耗时相等，单条指令的延迟与单周期相同，流水线的收益全部来自重叠执行。`;
+    if (!latch && Math.min.apply(null, ds) !== mx) {
+      t += ` 另：少数习题按“各段不等长、不按统一时钟”计算，总时间取 Σtᵢ + (N − 1)·max tᵢ = ${fmt(sum + (N - 1) * mx)} ${u}，做题时看选项判断采用哪种模型。`;
+    }
+    ins.textContent = t;
+  }
+  presetEl.addEventListener('click', e => { const b = e.target.closest('button'); if (b) load(b.dataset.v); });
+  [unitEl, latchEl, nEl].forEach(x => x.addEventListener('input', () => { clearPreset(); calc(); }));
+  unitEl.addEventListener('change', calc);
+  $('#clock-add').addEventListener('click', () => { if (stages.length >= 8) return; stages.push({ name: '段' + (stages.length + 1), d: 100 }); clearPreset(); build(); });
+  $('#clock-del').addEventListener('click', () => { if (stages.length <= 2) return; stages.pop(); clearPreset(); build(); });
+  load('book');
+  return { load };
+})();
+
+/* ================================================================
+ * 10. 时空图与吞吐率
+ * ================================================================ */
+const perfUI = (function () {
+  const kEl = $('#perf-k'), nEl = $('#perf-n');
+  const line = $('#perf-line');
+  function stageNames(k) { return k === 5 ? STAGES.slice() : Array.from({ length: k }, (_, i) => 'S' + (i + 1)); }
+  function draw() {
+    const k = +kEl.value, n = +nEl.value;
+    $('#perf-k-out').textContent = k; $('#perf-n-out').textContent = n;
+    const tot = k + n - 1, names = stageNames(k);
+    const cells = [];
+    for (let s = 0; s < k; s++) {
+      for (let c = 0; c < tot; c++) {
+        const i = c - s;
+        if (i >= 0 && i < n) cells.push({ r: k - 1 - s, x0: c, x1: c + 1, cls: 'occ', text: String(i + 1), tip: `第 ${c + 1} 个周期：任务 ${i + 1} 在 ${names[s]} 段` });
+        else cells.push({ r: k - 1 - s, x0: c, x1: c + 1, cls: 'idle', tip: `第 ${c + 1} 个周期：${names[s]} 段空闲` });
+      }
+    }
+    gantt($('#perf-st'), { cols: tot, cw: 30, rh: 24, lw: 40, rows: names.slice().reverse(), cells, axis: 'num', end: tot, padR: 16 });
+    const E = n / tot, S = (n * k) / tot;
+    $('#perf-out').innerHTML = [
+      ['总时间 Tk', `${tot}Δt`, `(${k} + ${n} − 1)Δt`],
+      ['吞吐率 TP', `${(n / tot).toFixed(3)}/Δt`, `${n} ÷ ${tot}Δt`],
+      ['最大吞吐率', '1/Δt', 'n → ∞'],
+      ['加速比 S', S.toFixed(2), `${n}×${k} ÷ ${tot}，上限 ${k}`],
+      ['效率 E', `${(E * 100).toFixed(1)}%`, `占用格 ${n * k} ÷ 总格 ${k * tot}`]
+    ].map(c => `<div><span>${c[0]}</span><b>${c[1]}</b><small>${c[2]}</small></div>`).join('');
+    $('#perf-formula').innerHTML = 'Tk = (k + n − 1)Δt<br>TP = n / Tk<br>TPmax = 1 / Δt<br>S = nkΔt / Tk<br>E = nkΔt / (k·Tk) = n / (k + n − 1)';
+    $('#perf-chart-title').textContent = `效率 E（= TP / TPmax）随任务数 n 的变化（k = ${k}）`;
+    drawLine(k, n);
+  }
+  let lineState = null;
+  function drawLine(k, n) {
+    const W = 600, H = 230, L = 46, Rr = 18, Tt = 14, B = 34, N = 64;
+    const x = v => L + ((v - 1) / (N - 1)) * (W - L - Rr);
+    const y = e => Tt + (1 - e) * (H - Tt - B);
+    const E = v => v / (k + v - 1);
+    let h = '';
+    [0, 0.25, 0.5, 0.75, 1].forEach(e => {
+      h += `<line class="${e === 0 ? 'base' : 'gl'}" x1="${L}" y1="${y(e)}" x2="${W - Rr}" y2="${y(e)}"></line>`;
+      h += `<text x="${L - 8}" y="${y(e) + 4}" text-anchor="end">${e * 100}%</text>`;
+    });
+    [1, 8, 16, 24, 32, 40, 48, 56, 64].forEach(v => { h += `<text x="${x(v)}" y="${H - B + 18}" text-anchor="middle">${v}</text>`; });
+    h += `<text x="${W - Rr}" y="${H - 4}" text-anchor="end">任务数 n</text>`;
+    let pd = '', ad = `M${x(1)},${y(0)} `;
+    for (let v = 1; v <= N; v++) { pd += `${v === 1 ? 'M' : 'L'}${x(v).toFixed(1)},${y(E(v)).toFixed(1)} `; ad += `L${x(v).toFixed(1)},${y(E(v)).toFixed(1)} `; }
+    ad += `L${x(N)},${y(0)} Z`;
+    h += `<path class="ar" d="${ad}"></path><path class="ln" d="${pd}"></path>`;
+    const cx = x(n), cyy = y(E(n));
+    h += `<g id="perf-x" visibility="hidden"><line class="xh" x1="0" y1="${Tt}" x2="0" y2="${H - B}"></line><circle class="dot" cx="0" cy="0" r="4.5"></circle></g>`;
+    h += `<circle class="dot" cx="${cx}" cy="${cyy}" r="5.5"></circle>`;
+    const lx = n > 44 ? cx - 8 : cx + 10, anchor = n > 44 ? 'end' : 'start';
+    h += `<text class="lab" x="${lx}" y="${cyy + 18}" text-anchor="${anchor}">n = ${n}：E = ${(E(n) * 100).toFixed(1)}%</text>`;
+    h += `<rect x="${L}" y="${Tt}" width="${W - L - Rr}" height="${H - Tt - B}" fill="transparent" id="perf-hit"></rect>`;
+    line.innerHTML = h;
+    lineState = { x, y, E, L, W, Rr, N, k };
+  }
+  line.addEventListener('pointermove', e => {
+    if (!lineState) return;
+    const pt = line.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+    const m = line.getScreenCTM(); if (!m) return;
+    const p = pt.matrixTransform(m.inverse());
+    const s = lineState;
+    const v = clamp(Math.round(1 + ((p.x - s.L) / (s.W - s.L - s.Rr)) * (s.N - 1)), 1, s.N);
+    const g = $('#perf-x');
+    g.setAttribute('visibility', 'visible');
+    g.querySelector('line').setAttribute('x1', s.x(v)); g.querySelector('line').setAttribute('x2', s.x(v));
+    g.querySelector('circle').setAttribute('cx', s.x(v)); g.querySelector('circle').setAttribute('cy', s.y(s.E(v)));
+    tip.dataset.sticky = '1';
+    showTip(`n = ${v}\n效率 E = ${(s.E(v) * 100).toFixed(1)}%\n吞吐率 TP = ${s.E(v).toFixed(3)}/Δt\n加速比 S = ${(s.E(v) * s.k).toFixed(2)}`, e.clientX, e.clientY);
+  });
+  line.addEventListener('pointerleave', () => { const g = $('#perf-x'); if (g) g.setAttribute('visibility', 'hidden'); tip.dataset.sticky = ''; tip.hidden = true; });
+  kEl.addEventListener('input', draw); nEl.addEventListener('input', draw);
+  draw();
+  return { set(k, n) { kEl.value = k; nEl.value = n; draw(); } };
+})();
+
+/* ================================================================
+ * 11. MIPS 指令的功能段
+ * ================================================================ */
+const MIPS = [
+  { key: 'R', tab: 'R 型', asm: 'add rd, rs, rt', rtl: 'R[rd] ← R[rs] op R[rt]',
+    own: [['Ifetch', '取指令，PC + 4'], ['Reg/Dec', '译码，读 rs、rt'], ['Exec', 'ALU 运算'], ['Write', '结果写入 rd']],
+    al: { IF: '取指令，PC + 4', ID: '译码，读寄存器 rs、rt', EX: 'ALU 对 R[rs] 和 R[rt] 运算', MEM: null, WB: 'ALU 结果写入寄存器 rd' },
+    note: 'R 型只需要 4 个功能段。为了让写寄存器与 lw 一样固定在第 5 段，在 Write 前插入一个空的 MEM 段。' },
+  { key: 'I', tab: 'I 型运算', asm: 'addi rt, rs, imm16', rtl: 'R[rt] ← R[rs] op SEXT(imm16)',
+    own: [['Ifetch', '取指令，PC + 4'], ['Reg/Dec', '译码，读 rs，扩展 imm16'], ['Exec', 'ALU 运算'], ['Write', '结果写入 rt']],
+    al: { IF: '取指令，PC + 4', ID: '译码，读 rs，把 16 位立即数符号扩展（或零扩展）', EX: 'ALU 对 R[rs] 与扩展后的立即数运算', MEM: null, WB: '结果写入寄存器 rt' },
+    note: '功能段划分与 R 型完全相同，区别只在于第二个操作数来自扩展后的立即数，结果写入 rt。' },
+  { key: 'lw', tab: 'lw', asm: 'lw rt, imm16(rs)', rtl: 'R[rt] ← M[R[rs] + SEXT(imm16)]',
+    own: [['Ifetch', '取指令'], ['Reg/Dec', '读 rs，扩展 imm16'], ['Exec', '计算地址'], ['Mem', '读存储器'], ['Write', '写入 rt']],
+    al: { IF: '取指令，PC + 4', ID: '译码，读 rs，立即数符号扩展', EX: '计算内存地址 R[rs] + SEXT(imm16)', MEM: '从数据存储器读出一个字', WB: '读出的数据写入寄存器 rt' },
+    note: 'lw 最复杂，用满 5 个功能段，五段流水线的段数就是按它确定的。' },
+  { key: 'sw', tab: 'sw', asm: 'sw rt, imm16(rs)', rtl: 'M[R[rs] + SEXT(imm16)] ← R[rt]',
+    own: [['Ifetch', '取指令'], ['Reg/Dec', '读 rs、rt'], ['Exec', '计算地址'], ['Mem', '写存储器']],
+    al: { IF: '取指令，PC + 4', ID: '译码，读 rs、rt，立即数符号扩展', EX: '计算内存地址 R[rs] + SEXT(imm16)', MEM: '把 R[rt] 写入数据存储器', WB: null },
+    note: 'sw 不写寄存器，在 Exec 之后只有 Mem 段，第 5 段为空段。' },
+  { key: 'beq', tab: 'beq', asm: 'beq rs, rt, imm16', rtl: 'if (R[rs] = R[rt])  PC ← PC + 4 + SEXT(imm16) × 4',
+    own: [['Ifetch', '取指令'], ['Reg/Dec', '读 rs、rt'], ['Exec', '比较，算目标'], ['Mem', '条件成立写 PC']],
+    al: { IF: '取指令，PC + 4', ID: '译码，读 rs、rt', EX: '比较 rs 与 rt，计算目标地址 PC + 4 + SEXT(imm16) × 4', MEM: '若相等，把目标地址写入 PC（不访存）', WB: null },
+    note: 'beq 的 Mem 段并不访存，而是写 PC；写 PC 比访存快，放在 Mem 段是为了与 lw、sw 对齐。转移结果要到 MEM 段末才确定，这就是控制冒险延迟 3 个周期的来源。' },
+  { key: 'j', tab: 'j', asm: 'j target', rtl: 'PC ← (PC + 4)[31:28] ∥ target ∥ 00',
+    own: [['Ifetch', '取指令'], ['Reg/Dec', '译码'], ['Exec', '更新 PC']],
+    al: { IF: '取指令，PC + 4', ID: '译码', EX: '拼接出目标地址并更新 PC', MEM: null, WB: null },
+    note: 'j 只需一个功能段更新 PC，可以合并到 Exec 段完成；其后插入空的 MEM 段和 Write 段。' }
+];
+(function mips() {
+  const tabs = $('#mips-tabs');
+  tabs.innerHTML = MIPS.map((m, i) => `<button type="button" role="tab" data-i="${i}" aria-pressed="${i === 0}" aria-selected="${i === 0}">${m.tab}</button>`).join('');
+  const OWN_STAGE = { Ifetch: 'IF', 'Reg/Dec': 'ID', Exec: 'EX', Mem: 'MEM', Write: 'WB' };
+  function show(i) {
+    const m = MIPS[i];
+    $$('button', tabs).forEach((b, j) => { b.setAttribute('aria-pressed', String(j === i)); b.setAttribute('aria-selected', String(j === i)); });
+    $('#mips-asm').textContent = m.asm;
+    $('#mips-rtl').textContent = m.rtl;
+    let own = '';
+    for (let k = 0; k < 5; k++) own += `<span class="cyc">${k < m.own.length ? k + 1 : ''}</span>`;
+    for (let k = 0; k < 5; k++) {
+      const o = m.own[k];
+      own += o ? `<span class="seg-c" style="--c:var(--s-${OWN_STAGE[o[0]].toLowerCase()})" title="${esc(o[1])}">${o[0]}</span>` : '<span class="seg-c none"></span>';
+    }
+    $('#mips-own').innerHTML = own;
+    let al = '';
+    STAGES.forEach((s, k) => { al += `<span class="cyc">${k + 1}</span>`; });
+    STAGES.forEach(s => { al += m.al[s] ? `<span class="seg-c" style="--c:var(--s-${s.toLowerCase()})">${s}</span>` : `<span class="seg-c empty" style="--c:var(--s-${s.toLowerCase()})">空段</span>`; });
+    $('#mips-aligned').innerHTML = al;
+    $('#mips-note').textContent = m.note;
+    $('#mips-steps').innerHTML = STAGES.map(s => `<li class="${m.al[s] ? '' : 'off'}"><span class="sb sb-${s}">${s}</span><span>${m.al[s] ? esc(m.al[s]) : '空段：不执行实际操作，只为对齐'}</span></li>`).join('');
+  }
+  tabs.addEventListener('click', e => { const b = e.target.closest('button'); if (b) show(+b.dataset.i); });
+  show(0);
+})();
+
+/* ================================================================
+ * 12. 高级流水线
+ * ================================================================ */
+const advUI = (function () {
+  const kEl = $('#adv-k'), nEl = $('#adv-n'), mEl = $('#adv-m'), figs = $('#adv-figs');
+  const NAMES = { 3: ['IF', 'ID', 'EX'], 4: ['IF', 'ID', 'EX', 'WB'], 5: STAGES };
+  function draw() {
+    const k = +kEl.value, n = +nEl.value, m = +mEl.value;
+    $('#adv-k-out').textContent = k; $('#adv-n-out').textContent = n; $('#adv-m-out').textContent = m;
+    const names = NAMES[k];
+    const tScalar = k + n - 1, tSuper = k + Math.ceil(n / m) - 1, tPipe = k + (n - 1) / m;
+    const cols = Math.ceil(tScalar);
+    const kinds = [
+      { id: 'scalar', title: '普通标量流水线', t: tScalar, f: `(k + n − 1)Δt = ${tScalar}Δt`, start: i => i, div: 1, desc: '每个周期发射 1 条' },
+      { id: 'super', title: `超标量（度 m = ${m}）`, t: tSuper, f: `(k + ⌈n/m⌉ − 1)Δt = ${tSuper}Δt`, start: i => Math.floor(i / m), div: 1, desc: `每个周期同时发射 ${m} 条独立指令` },
+      { id: 'pipe', title: `超流水线（度 m = ${m}）`, t: tPipe, f: `(k + (n − 1)/m)Δt = ${+tPipe.toFixed(2)}Δt`, start: i => i / m, div: m, desc: `每段再分成 ${m} 个子段，时钟周期变为 Δt/${m}，每个小周期发射 1 条` }
+    ];
+    figs.innerHTML = kinds.map(x => `<div class="adv-fig"><header><b>${x.title}</b><span>${x.f}</span><span class="muted">${x.desc}</span></header><div class="scroll-x"><svg class="chart" id="adv-${x.id}"></svg></div></div>`).join('');
+    kinds.forEach(x => {
+      const cells = [];
+      for (let i = 0; i < n; i++) {
+        const st = x.start(i);
+        names.forEach((s, j) => cells.push({ r: i, x0: st + j, x1: st + j + 1, cls: 'st-' + s, text: s, div: x.div > 1 ? x.div : 0, tip: `I${i + 1} 的 ${s} 段：${+(st + j).toFixed(2)}Δt ～ ${+(st + j + 1).toFixed(2)}Δt` }));
+      }
+      gantt($('#adv-' + x.id), { cols, cw: 34, rh: 18, lw: 34, rows: Array.from({ length: n }, (_, i) => 'I' + (i + 1)), cells, axis: 'dt', tiny: true, end: x.t, every: cols > 24 ? 2 : 1 });
+    });
+  }
+  [kEl, nEl, mEl].forEach(x => x.addEventListener('input', draw));
+  draw();
+  return { set(k, n, m) { kEl.value = k; nEl.value = n; mEl.value = m; draw(); } };
+})();
+
+/* ================================================================
+ * 13. 真题自测
+ * ================================================================ */
+const QUIZ = [
+  { id: 'q2009', src: 'real', year: '2009 统考', topic: '时钟周期',
+    stem: '某计算机的指令流水线由 4 个功能段组成，指令流经各功能段的时间（忽略各功能段之间的缓存时间）分别为 90 ns、80 ns、70 ns 和 60 ns，则该计算机的 CPU 时钟周期至少是（ ）。',
+    opts: ['90 ns', '80 ns', '70 ns', '60 ns'], ans: 0,
+    exp: '各段共用一个时钟，时钟周期必须容纳最慢的一段，否则这一段在一个周期内做不完。取最大值 90 ns。', act: ['clock', 'y2009'] },
+  { id: 'q2018', src: 'real', year: '2018 统考', topic: '时钟周期',
+    stem: '若某计算机最复杂指令的执行需要完成 5 个子功能，分别由功能部件 A～E 实现，各功能部件所需时间分别为 80 ps、50 ps、50 ps、70 ps 和 50 ps，采用流水线方式执行指令，流水段寄存器延时为 20 ps，则 CPU 时钟周期至少为（ ）。',
+    opts: ['60 ps', '70 ps', '80 ps', '100 ps'], ans: 3,
+    exp: '时钟周期 = 最长段 80 ps + 流水段寄存器延时 20 ps = 100 ps。题目给出了寄存器延时，就必须加上。', act: ['clock', 'y2018'] },
+  { id: 'q2010', src: 'real', year: '2010 统考', topic: '阻塞原因',
+    stem: '下列不会引起指令流水线阻塞的是（ ）。',
+    opts: ['数据旁路', '数据相关', '条件转移', '资源冲突'], ans: 0,
+    exp: '资源冲突、数据相关、条件转移分别对应结构冒险、数据冒险和控制冒险，都会让流水线阻塞；数据旁路（转发）恰恰是减少数据冒险阻塞的手段。', act: ['sim', 'fwd'] },
+  { id: 'q2011', src: 'real', year: '2011 统考', topic: '指令集',
+    stem: '下列给出的指令系统特点中，有利于实现指令流水线的是（ ）。\nⅠ. 指令格式规整且长度一致\nⅡ. 指令和数据按边界对齐存放\nⅢ. 只有 Load/Store 指令才能对操作数进行存储访问',
+    opts: ['仅 Ⅰ、Ⅱ', '仅 Ⅱ、Ⅲ', '仅 Ⅰ、Ⅲ', 'Ⅰ、Ⅱ、Ⅲ'], ans: 3,
+    exp: '格式规整、长度一致，取指和译码时间固定；按边界对齐，一次访存就能取到完整数据；只有 Load/Store 访存，访存集中在 MEM 段。三项都是 RISC 的特征，都有利于流水。' },
+  { id: 'q2013', src: 'real', year: '2013 统考', topic: '吞吐率',
+    stem: '某 CPU 主频为 1.03 GHz，采用 4 级指令流水线，每个流水段的执行需要 1 个时钟周期。假定 CPU 执行了 100 条指令，在其执行过程中没有发生任何流水线阻塞，此时流水线的吞吐率为（ ）。',
+    opts: ['0.25×10⁹ 条指令/秒', '0.97×10⁹ 条指令/秒', '1.0×10⁹ 条指令/秒', '1.03×10⁹ 条指令/秒'], ans: 2,
+    exp: '4 级流水线执行 100 条指令共需 4 + (100 − 1) = 103 个周期。每秒 1.03×10⁹ 个周期，所以吞吐率 = 1.03×10⁹ × 100 / 103 = 1.0×10⁹ 条/秒。', act: ['perf', 4, 20] },
+  { id: 'q2014', src: 'real', year: '2014 统考', topic: '结构冒险',
+    stem: '采用指令 Cache 与数据 Cache 分离的主要目的是（ ）。',
+    opts: ['降低 Cache 的缺失损失', '提高 Cache 的命中率', '降低 CPU 平均访存时间', '减少指令流水线资源冲突'], ans: 3,
+    exp: 'IF 段读指令、MEM 段读写数据，若共用一个 Cache，两段在同一周期访问时就会产生结构冒险。分离后各用各的。', act: ['sim', 'struct'] },
+  { id: 'q2016', src: 'real', year: '2016 统考', topic: '数据冒险',
+    stem: '在无转发机制的五段基本流水线（取指、译码/读寄存器、运算、访存、写回寄存器）中，下列指令序列存在数据冒险的指令对是（ ）。',
+    code: 'I1: add R1, R2, R3   ; (R2)+(R3)→R1\nI2: add R5, R2, R4   ; (R2)+(R4)→R5\nI3: add R4, R5, R3   ; (R5)+(R3)→R4\nI4: add R5, R2, R6   ; (R2)+(R6)→R5',
+    opts: ['I1 和 I2', 'I2 和 I3', 'I2 和 I4', 'I3 和 I4'], ans: 1,
+    exp: 'I3 要读 R5，而 R5 正是紧邻的 I2 写的，构成写后读（RAW）冒险。I3 读 R5、I4 写 R5 是读后写；I2、I4 都写 R5 是写后写，按序流水线中都不会出错。I1 写的 R1 后面没有指令读。', act: ['sim', 'z2016'] },
+  { id: 'q2017a', src: 'real', year: '2017 统考', topic: '超标量',
+    stem: '下列关于超标量流水线特性的叙述中，正确的是（ ）。\nⅠ. 能缩短流水线功能段的处理时间\nⅡ. 能在一个时钟周期内同时发射多条指令\nⅢ. 能结合动态调度技术提高指令执行并行性',
+    opts: ['仅 Ⅱ', '仅 Ⅰ、Ⅲ', '仅 Ⅱ、Ⅲ', 'Ⅰ、Ⅱ、Ⅲ'], ans: 2,
+    exp: '超标量靠多套功能部件在一个周期内发射多条指令，还可结合动态调度乱序执行；它不改变每个功能段本身的处理时间，Ⅰ 错误。', act: ['adv', 4, 8, 2] },
+  { id: 'q2017b', src: 'real', year: '2017 统考', topic: '数据通路',
+    stem: '下列关于指令流水线数据通路的叙述中，错误的是（ ）。',
+    opts: ['包含生成控制信号的控制部件', '包含算术逻辑运算部件（ALU）', '包含通用寄存器组和取指部件', '由组合逻辑电路和时序逻辑电路组合而成'], ans: 0,
+    exp: '数据通路是指令执行时数据流经的部件，如 ALU、通用寄存器、PC、取指部件等，由组合逻辑和时序逻辑电路构成。生成控制信号的控制部件属于控制器，不属于数据通路。' },
+  { id: 'q2019', src: 'real', year: '2019 统考', topic: '数据冒险',
+    stem: '在采用“取指、译码/取数、执行、访存、写回”5 段流水线的处理器中，执行如下指令序列，其中 s0、s1、s2、s3 和 t2 表示寄存器编号。下列指令对中，不存在数据冒险的是（ ）。',
+    code: 'I1: add   s2, s1, s0   // R[s2]←R[s1]+R[s0]\nI2: load  s3, 0(t2)    // R[s3]←M[R[t2]+0]\nI3: add   s2, s2, s3   // R[s2]←R[s2]+R[s3]\nI4: store s2, 0(t2)    // M[R[t2]+0]←R[s2]',
+    opts: ['I1 和 I3', 'I2 和 I3', 'I2 和 I4', 'I3 和 I4'], ans: 2,
+    exp: '写后读相关共三对：I1→I3（s2）、I2→I3（s3）、I3→I4（s2）。I4 只读 s2 和 t2，与 I2 写的 s3 无关，所以 I2 和 I4 不存在数据冒险。', act: ['sim', 'z2019'] },
+  { id: 'q2020', src: 'real', year: '2020 统考', topic: 'CPI',
+    stem: '下列给出的处理器类型中，理想情况下 CPI 为 1 的是（ ）。\nⅠ. 单周期 CPU　Ⅱ. 多周期 CPU　Ⅲ. 基本流水线 CPU　Ⅳ. 超标量流水线 CPU',
+    opts: ['仅 Ⅰ、Ⅱ', '仅 Ⅰ、Ⅲ', '仅 Ⅱ、Ⅳ', '仅 Ⅲ、Ⅳ'], ans: 1,
+    exp: '单周期 CPU 每条指令一个周期，CPI = 1；基本流水线理想情况下每周期完成一条，CPI = 1；多周期 CPU 的 CPI > 1；超标量每周期可完成多条，CPI < 1。' },
+  { id: 'q2023', src: 'real', year: '2023 统考', topic: '冒险综合',
+    stem: '在采用“取指、译码/取数、执行、访存、写回”5 段流水线的 RISC 处理器中，执行如下指令序列。若采用转发（旁路）技术处理数据冒险，采用硬件阻塞方式处理控制冒险，则在指令 I1～I4 的执行过程中，发生流水线阻塞的指令有（ ）。',
+    code: 'I1: add  s2, s1, s0   // R[s2]←R[s1]+R[s0]\nI2: load s3, 0(s2)    // R[s3]←M[R[s2]+0]\nI3: beq  t2, s3, L1   // if R[t2]=R[s3] jump to L1\nI4: addi t2, t2, 20   // R[t2]←R[t2]+20\nI5: L1: ……',
+    opts: ['仅 I3', '仅 I2、I4', '仅 I3、I4', '仅 I2、I3、I4'], ans: 2,
+    exp: 'I1→I2 的 s2 用转发解决，I2 不阻塞；I2 是 load，I3 紧接着用 s3，属于 load-use，转发后仍要阻塞 1 个周期；I3 是 beq，用硬件阻塞处理，I4 要等 beq 的 MEM 段结束才能取指。所以阻塞的是 I3 和 I4。', act: ['sim', 'z2023'] },
+  { id: 'q2024', src: 'real', year: '2024 统考', topic: '数据冒险',
+    stem: '对于采用“取指、译码/取数、执行、访存、写回”5 段流水线的 RISC 数据通路，下列关于指令流水线数据冒险处理的叙述中，错误的是（ ）。',
+    opts: ['相邻两条指令中的操作数相关可能引起数据冒险', '在数据相关的指令间插入“气泡”能避免数据冒险', '所有数据冒险都可以通过加入转发（旁路）电路解决', '所有数据冒险都能通过调整指令顺序和插入 nop 指令解决'], ans: 2,
+    exp: 'load-use 冒险中，load 的数据到 MEM 段末才得到，而下一条指令的 EX 与它同时开始，转发也来不及，至少还要阻塞 1 个周期或插入 1 条 nop。', act: ['sim', 'loaduse'] },
+  { id: 'q2025a', src: 'real', year: '2025 统考', topic: 'CPI',
+    stem: '下列关于 CPI 和 CPU 时钟周期的叙述中，错误的是（ ）。',
+    opts: ['不同类型指令的 CPI 可能不一样', '程序的 CPI 与 Cache 缺失率无关', '单周期 CPU 的时钟周期以最耗时指令所用时间为准', '流水线 CPU 的时钟周期以最长流水段所用时间为准'], ans: 1,
+    exp: 'Cache 缺失时 CPU 要等主存，增加额外的停顿周期，程序的平均 CPI 随之变大，B 错误。其余三项都正确。' },
+  { id: 'q2025b', src: 'real', year: '2025 统考', topic: '数据通路',
+    stem: '下列关于 CPU 中的数据通路和控制器的叙述中，错误的是（ ）。',
+    opts: ['通用寄存器组中应该包含程序计数器', '控制器中一定包含指令操作码的译码电路', '单周期 CPU 中的控制器比多周期 CPU 中的更简单', '流水线 CPU 需解决数据相关和控制相关等冒险问题'], ans: 0,
+    exp: 'PC 是专用寄存器，存放下一条指令的地址，不属于程序员可直接使用的通用寄存器组，A 错误。单周期 CPU 的控制器只需按操作码一次性产生全部控制信号，比多周期的简单。' },
+  { id: 'ex01', src: 'ex', year: '练习', topic: '基本概念',
+    stem: '下列关于流水线 CPU 的叙述中，正确的是（ ）。',
+    opts: ['流水线技术通过复制多个功能部件实现空间并行处理', '只有精简指令集（RISC）处理器才能采用流水线技术', '流水线 CPU 必须采用多核结构才能工作', '流水线是一种通过时间并行性提高指令执行效率的技术'], ans: 3,
+    exp: '流水线把指令执行分段并重叠执行，是时间并行；复制功能部件属于超标量的空间并行。CISC 处理器（如 x86）同样采用流水线，单核 CPU 就能实现。' },
+  { id: 'ex03', src: 'ex', year: '练习', topic: '时空图',
+    stem: '设指令由取指、分析、执行 3 个子部件完成，每个子部件的时间都为 Δt。若采用常规标量单流水线处理机，连续执行 12 条指令共需（ ）。',
+    opts: ['12Δt', '14Δt', '16Δt', '18Δt'], ans: 1,
+    exp: '(k + n − 1)Δt = (3 + 12 − 1)Δt = 14Δt。', act: ['perf', 3, 12] },
+  { id: 'ex04', src: 'ex', year: '练习', topic: '超标量',
+    stem: '条件同上题，若采用度为 4 的超标量流水线处理机，连续执行 20 条指令只需（ ）。',
+    opts: ['3Δt', '5Δt', '7Δt', '9Δt'], ans: 2,
+    exp: '每个周期同时发射 4 条，20 条分 5 批，第 5 批在第 5 个 Δt 开始，再经过 3 段完成：(3 + 20/4 − 1)Δt = 7Δt。', act: ['adv', 3, 20, 4] },
+  { id: 'ex05', src: 'ex', year: '练习', topic: '时钟周期',
+    stem: '设指令流水线把一条指令分为取指、分析、执行 3 部分，所需时间分别为 2 ns、2 ns、1 ns，则 100 条指令全部执行完毕需（ ）。',
+    opts: ['163 ns', '183 ns', '193 ns', '203 ns'], ans: 3,
+    exp: '本题按“各段时间不等”的模型：第一条指令流完要 2 + 2 + 1 = 5 ns，之后每隔最长段 2 ns 流出一条，共 5 + 99 × 2 = 203 ns。若每段都按统一时钟 2 ns 计算，结果为 (3 + 99) × 2 = 204 ns，不在选项中，可据此判断题目采用的模型。', act: ['clock', 'ex05'] },
+  { id: 'ex13', src: 'ex', year: '练习', topic: '转发与 nop',
+    stem: '指令 I1 和 I3、I2 和 I3 之间发生数据相关。假定采用“取指、译码/取数、执行、访存、写回”五段流水线，采用转发技术时，需要在 I3 之前加入（ ）条空操作指令，才能使这段程序不发生数据冒险。',
+    code: 'I1: add  r1, r0, 1    # (r1)←(r0)+1\nI2: load r3, 12(r2)   # (r3)←M[(r2)+12]\nI3: add  r5, r3, r1   # (r5)←(r3)+(r1)',
+    opts: ['3', '2', '0', '1'], ans: 3,
+    exp: 'I1 的 r1 在 EX 段末就算出，可经转发供 I3 使用；I2→I3 是 load-use，r3 要到 I2 的 MEM 段末才有，I3 的 EX 必须晚一个周期，所以要在 I3 前插入 1 条 nop。', act: ['sim', 'ex13'] }
+];
+(function quiz() {
+  const list = $('#quiz-list'), prog = $('#quiz-prog'), filterEl = $('#quiz-filter');
+  let answers = store.get('pl-quiz', {}) || {};
+  let filter = 'all';
+  function render() {
+    const qs = QUIZ.filter(q => filter === 'all' || q.src === filter);
+    list.innerHTML = qs.map((q, idx) => `
+      <li class="q" id="q-${q.id}">
+        <div class="q-head"><span class="q-no">${String(idx + 1).padStart(2, '0')}</span><span class="q-src${q.src === 'real' ? ' real' : ''}">${q.year}</span><span class="q-topic">${q.topic}</span></div>
+        <p class="q-stem">${esc(q.stem)}</p>
+        ${q.code ? `<pre class="q-code">${esc(q.code)}</pre>` : ''}
+        <div class="q-opts">${q.opts.map((o, i) => `<button type="button" class="opt" data-q="${q.id}" data-i="${i}"><b>${'ABCD'[i]}</b><span>${esc(o)}</span></button>`).join('')}</div>
+        <div class="q-fb" hidden></div>
+      </li>`).join('');
+    qs.forEach(q => { if (answers[q.id] != null) mark(q, answers[q.id]); });
+    progress();
+  }
+  function mark(q, i) {
+    const li = $('#q-' + q.id);
+    if (!li) return;
+    $$('.opt', li).forEach((b, j) => {
+      b.classList.toggle('right', j === q.ans);
+      b.classList.toggle('wrong', j === i && i !== q.ans);
+      b.setAttribute('aria-pressed', String(j === i));
+    });
+    const fb = $('.q-fb', li);
+    const ok = i === q.ans;
+    let actBtn = '';
+    if (q.act) actBtn = `<button class="btn btn-sm" type="button" data-act="${q.id}">${q.act[0] === 'sim' ? '在模拟器中验证' : q.act[0] === 'clock' ? '在时钟周期计算器中验证' : q.act[0] === 'perf' ? '在时空图中验证' : '在多发射对比图中验证'}</button>`;
+    fb.innerHTML = `<span class="res ${ok ? 'r' : 'w'}">${ok ? '✓ 回答正确' : `✗ 正确答案是 ${'ABCD'[q.ans]}`}</span><span>${esc(q.exp)}</span>${actBtn}`;
+    fb.hidden = false;
+  }
+  function progress() {
+    const ids = Object.keys(answers).filter(id => QUIZ.some(q => q.id === id));
+    const right = ids.filter(id => QUIZ.find(q => q.id === id).ans === answers[id]).length;
+    prog.textContent = `已答 ${ids.length} / ${QUIZ.length} · 答对 ${right}`;
+  }
+  list.addEventListener('click', e => {
+    const b = e.target.closest('.opt');
+    if (b) {
+      const q = QUIZ.find(x => x.id === b.dataset.q);
+      const i = +b.dataset.i;
+      answers[q.id] = i; store.set('pl-quiz', answers);
+      mark(q, i); progress();
+      return;
+    }
+    const a = e.target.closest('[data-act]');
+    if (a) {
+      const q = QUIZ.find(x => x.id === a.dataset.act), act = q.act;
+      const go = sel => $(sel).scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+      if (act[0] === 'sim') simUI.loadPreset(act[1], true);
+      else if (act[0] === 'clock') { clockUI.load(act[1]); go('#clock'); }
+      else if (act[0] === 'perf') { perfUI.set(act[1], act[2]); go('#perf'); }
+      else if (act[0] === 'adv') { advUI.set(act[1], act[2], act[3]); go('#s5'); }
+    }
+  });
+  filterEl.addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    filter = b.dataset.v;
+    $$('button', filterEl).forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    render();
+  });
+  $('#quiz-reset').addEventListener('click', () => { answers = {}; store.set('pl-quiz', answers); render(); });
+  render();
+})();
+
+/* ---------- 目录高亮 ---------- */
+(function tocSpy() {
+  if (!('IntersectionObserver' in window)) return;
+  const links = new Map($$('.toc a').map(a => [a.getAttribute('href').slice(1), a]));
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(en => {
+      if (!en.isIntersecting) return;
+      links.forEach(a => a.classList.remove('on'));
+      const a = links.get(en.target.id);
+      if (a) {
+        a.classList.add('on');
+        const nav = a.parentElement;
+        if (a.offsetLeft < nav.scrollLeft || a.offsetLeft + a.offsetWidth > nav.scrollLeft + nav.clientWidth) nav.scrollLeft = a.offsetLeft - 8;
+      }
+    });
+  }, { rootMargin: '-45% 0px -50% 0px' });
+  links.forEach((a, id) => { const s = document.getElementById(id); if (s) io.observe(s); });
+})();
+
+window.PipelineLab = { parseProgram, simulate, PRESETS };
+})();
+</script>
+</body>
+</html>
